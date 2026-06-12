@@ -69,7 +69,7 @@
     }).sort(byKickoff);
     if (upcoming.length) {
       var up = el('div', { class: 'panel' });
-      up.appendChild(el('h2', null, ['Upcoming ', el('span', { class: 'sub' }, ['today & tomorrow'])]));
+      up.appendChild(el('h2', null, ['Matches ', el('span', { class: 'sub' }, ['today & tomorrow'])]));
       var byDate = {};
       upcoming.forEach(function (m) { (byDate[m.date || 'Undated'] = byDate[m.date || 'Undated'] || []).push(m); });
       Object.keys(byDate).sort().forEach(function (d) {
