@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#06231a" />
+  <title>WC26 Sweepstake Tracker</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">★</span>
+      <div>
+        <h1>World Cup 2026 · Sweepstake</h1>
+        <p>Tracker &amp; Morning Report</p>
+      </div>
+    </div>
+    <div id="status" class="status busy"><span class="dot"></span>Loading…</div>
+  </header>
+
+  <nav id="tabs" class="tabs"></nav>
+
+  <main id="view" class="view"></main>
+
+  <footer class="appfoot">
+    Live from ESPN’s free World Cup feed. Data is fetched fresh on every load and recomputed on the fly — nothing is stored.
+  </footer>
+
+  <script src="js/data.js"></script>
+  <script src="js/standings.js"></script>
+  <script src="js/report.js"></script>
+  <script src="js/espn.js"></script>
+  <script src="js/live.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
