@@ -33,11 +33,12 @@ On load the app fetches from ESPN's free, no-key feed
    red cards. These stream in just after, filling the Disciplinary prize and
    the report's scorers. A status pill in the header shows progress.
 
-A tiny **session cache** keeps repeat loads light: finished-match scorers/cards
-and past days' scoreboards never change, so they're reused for the browser-tab
-session, while today's games re-check on a short (~60s) TTL so live scores stay
-fresh. It lives in `sessionStorage` and clears when the tab closes — no real
-state is persisted.
+A tiny **session cache** keeps repeat loads light by only ever caching data
+that can't change again: a day is cached once **all its matches have ended** (or
+the date is already past), and a match's scorers/cards are cached only for
+finished games. In-play and upcoming days are always re-fetched, so live scores
+never go stale. It lives in `sessionStorage` and clears when the tab closes — no
+real state is persisted.
 
 Everything below is recomputed from that match list on every render:
 
