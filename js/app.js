@@ -40,6 +40,17 @@
     var finished = st.matches.filter(S.isFinished).length;
 
     var root = el('div');
+
+    var liveNow = st.matches.filter(function (m) { return m.status === 'live'; })
+      .sort(function (a, b) { return (a.kickoff || '').localeCompare(b.kickoff || ''); });
+    if (liveNow.length) {
+      var lp = el('div', { class: 'panel live-panel' });
+      lp.appendChild(el('h2', null, [el('span', { class: 'live-dot' }), 'Live Now ',
+        el('span', { class: 'sub' }, [liveNow.length + ' in play · auto-updating'])]));
+      liveNow.forEach(function (m) { lp.appendChild(matchRow(m)); });
+      root.appendChild(lp);
+    }
+
     var grid = el('div', { class: 'grid' });
     grid.appendChild(statCard('Matches played', finished));
     grid.appendChild(statCard('Teams in action', played + ' / 48'));
@@ -309,12 +320,16 @@
 
   function matchRow(m) {
     var fin = S.isFinished(m);
-    var score = fin ? (m.homeScore + ' – ' + m.awayScore) : (m.kickoff ? m.kickoff + ' UK' : '—');
+    var live = m.status === 'live' && m.homeScore != null;
+    var score = (fin || live) ? (m.homeScore + ' – ' + m.awayScore) : (m.kickoff ? m.kickoff + ' UK' : '—');
+    var tag = live
+      ? el('span', { class: 'tag live' }, [el('span', { class: 'live-dot' }), m.clock || m.statusDetail || 'LIVE'])
+      : el('span', { class: 'tag' }, [m.group || '—']);
     var head = el('div', { class: 'match-head' }, [
-      el('span', { class: 'tag' }, [m.group || '—']),
+      tag,
       el('span', { class: 'mr-teams' }, [
         el('b', null, [m.home || '?']), ' ',
-        el('span', { class: 'mr-score ' + (fin ? 'fin' : 'sched') }, [score]), ' ',
+        el('span', { class: 'mr-score ' + (fin ? 'fin' : (live ? 'livescore' : 'sched')) }, [score]), ' ',
         el('b', null, [m.away || '?'])
       ]),
       el('span', { class: 'mr-owners muted' }, [WC.ownerOf(m.home) + ' v ' + WC.ownerOf(m.away)])
@@ -322,10 +337,10 @@
     var cardCount = (m.cards || []).length;
     if (cardCount) head.appendChild(el('span', { class: 'mr-cards' }, [cardCount + ' card' + (cardCount === 1 ? '' : 's')]));
 
-    var matchEl = el('div', { class: 'match ' + (fin ? 'is-ft' : 'is-sched') }, [head]);
+    var matchEl = el('div', { class: 'match ' + (fin ? 'is-ft' : (live ? 'is-live' : 'is-sched')) }, [head]);
 
-    // Finished matches expand to show each team's goalscorers and cards.
-    if (fin) {
+    // Finished and in-play matches expand to show goalscorers and cards.
+    if (fin || live) {
       matchEl.classList.add('expandable');
       head.appendChild(el('span', { class: 'chevron' }, ['▾']));
       matchEl.appendChild(el('div', { class: 'match-details' }, [teamDetail('home', m), teamDetail('away', m)]));
@@ -597,8 +612,11 @@
     if (st.loading) { box.classList.add('busy'); box.innerHTML = '<span class="dot"></span>Loading live data from ESPN…'; return; }
     if (st.error) { box.classList.add('err'); box.innerHTML = '<span class="dot"></span>Couldn’t reach ESPN — <a id="reload">reload</a>'; wireReload(); return; }
     var t = st.updatedAt ? st.updatedAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
+    var liveCount = st.matches.filter(function (m) { return m.status === 'live'; }).length;
     box.classList.add('ok');
-    box.innerHTML = '<span class="dot"></span>Live from ESPN' + (st.detailLoading ? ' · loading details…' : ' · updated ' + t) + ' — <a id="reload">reload</a>';
+    if (liveCount) box.classList.add('live');
+    var lead = liveCount ? ('<span class="dot"></span>' + liveCount + ' live now') : '<span class="dot"></span>Live from ESPN';
+    box.innerHTML = lead + (st.detailLoading ? ' · loading details…' : ' · updated ' + t) + ' — <a id="reload">reload</a>';
     wireReload();
   }
   function wireReload() { var a = $('#reload'); if (a) a.addEventListener('click', function () { location.reload(); }); }
