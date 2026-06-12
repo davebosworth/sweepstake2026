@@ -73,7 +73,8 @@
       var tb = el('tbody');
       disc.forEach(function (r) {
         var tr = el('tr', r.rank === 1 ? { class: 'leader' } : null);
-        tr.innerHTML = '<td>' + r.rank + (r.rank === 1 ? ' ★' : '') + '</td><td>' + r.team + '</td><td class="muted">' + r.owner +
+        var team = (r.live ? '<span class="live-dot"></span>' : '') + r.team;
+        tr.innerHTML = '<td>' + r.rank + (r.rank === 1 ? ' ★' : '') + '</td><td>' + team + '</td><td class="muted">' + r.owner +
           '</td><td class="r">' + r.red + '</td><td class="r">' + r.yellow + '</td><td class="r b gold">' + r.cardPoints + '</td>';
         tb.appendChild(tr);
       });
@@ -89,9 +90,10 @@
       wt.innerHTML = '<thead><tr><th>#</th><th>Team</th><th>Owner</th><th class="r">Pts</th><th class="r">GD</th></tr></thead>';
       var wb = el('tbody');
       worst.forEach(function (r) {
-        var tr = el('tr');
+        var tr = el('tr', r.live ? { class: 'liverow' } : null);
         var gd = (r.GD > 0 ? '+' : '') + r.GD;
-        tr.innerHTML = '<td>' + r.rank + '</td><td>' + r.team + '</td><td class="muted">' + r.owner +
+        var team = (r.live ? '<span class="live-dot"></span>' : '') + r.team;
+        tr.innerHTML = '<td>' + r.rank + '</td><td>' + team + '</td><td class="muted">' + r.owner +
           '</td><td class="r b">' + r.Pts + '</td><td class="r ' + (r.GD < 0 ? 'red' : '') + '">' + gd + '</td>';
         wb.appendChild(tr);
       });
@@ -166,8 +168,8 @@
     return [
       { prize: 'Overall Winner', amount: 80, team: winner && winner.team, owner: winner && winner.owner, basis: winner ? 'shortest winner odds' : oddsNote },
       { prize: 'Runner Up', amount: 20, team: runner && runner.team, owner: runner && runner.owner, basis: runner ? ruBasis : (winRows.length ? '—' : oddsNote) },
-      { prize: 'Worst Team', amount: 20, team: worst && worst.team, owner: worst && worst.owner, basis: worst ? 'bottom of wooden-spoon table' : 'no matches yet' },
-      { prize: 'Dirtiest Team', amount: 20, team: disc && disc.team, owner: disc && disc.owner, basis: disc ? 'most disciplinary points' : 'no cards yet' },
+      { prize: 'Worst Team', amount: 20, team: worst && worst.team, owner: worst && worst.owner, live: !!(worst && worst.live), basis: worst ? 'bottom of wooden-spoon table' : 'no matches yet' },
+      { prize: 'Dirtiest Team', amount: 20, team: disc && disc.team, owner: disc && disc.owner, live: !!(disc && disc.live), basis: disc ? 'most disciplinary points' : 'no cards yet' },
       { prize: 'Best Goal', amount: 20, team: null, owner: null, basis: 'not tracked', excluded: true }
     ];
   }
@@ -185,7 +187,7 @@
     preds.forEach(function (p) {
       var tr = el('tr', { class: (p.excluded ? 'muted' : (p.amount === 80 ? 'leader' : '')) });
       tr.innerHTML = '<td><b>' + p.prize + '</b></td>' +
-        '<td>' + (p.team || '<span class="muted">—</span>') + '</td>' +
+        '<td>' + (p.live ? '<span class="live-dot"></span>' : '') + (p.team || '<span class="muted">—</span>') + '</td>' +
         '<td class="' + (p.owner ? 'b' : 'muted') + '">' + (p.owner || '—') + '</td>' +
         '<td class="r b ' + (p.excluded ? 'muted' : 'gold') + '">£' + p.amount + '</td>';
       tb.appendChild(tr);
@@ -375,14 +377,16 @@
   /* ---- TAB: Standings ----------------------------------------------------- */
   function standingsPanel(label, rows) {
     var panel = el('div', { class: 'panel' });
-    panel.appendChild(el('h2', null, [label]));
+    var anyLive = rows.some(function (r) { return r.live; });
+    panel.appendChild(el('h2', null, [label, anyLive ? el('span', { class: 'sub' }, ['live — provisional']) : null]));
     var t = el('table', { class: 'tbl' });
     t.innerHTML = '<thead><tr><th>#</th><th>Team</th><th>Owner</th><th class="r">P</th><th class="r">W</th><th class="r">D</th><th class="r">L</th><th class="r">GF</th><th class="r">GA</th><th class="r">GD</th><th class="r">Pts</th></tr></thead>';
     var tb = el('tbody');
     rows.forEach(function (r) {
       var gd = (r.GD > 0 ? '+' : '') + r.GD;
-      var tr = el('tr');
-      tr.innerHTML = '<td>' + r.pos + '</td><td>' + r.team + '</td><td class="muted">' + r.owner + '</td><td class="r">' + r.P + '</td><td class="r">' + r.W + '</td><td class="r">' + r.D + '</td><td class="r">' + r.L + '</td><td class="r">' + r.GF + '</td><td class="r">' + r.GA + '</td><td class="r">' + gd + '</td><td class="r b">' + r.Pts + '</td>';
+      var tr = el('tr', r.live ? { class: 'liverow' } : null);
+      var team = (r.live ? '<span class="live-dot"></span>' : '') + r.team;
+      tr.innerHTML = '<td>' + r.pos + '</td><td>' + team + '</td><td class="muted">' + r.owner + '</td><td class="r">' + r.P + '</td><td class="r">' + r.W + '</td><td class="r">' + r.D + '</td><td class="r">' + r.L + '</td><td class="r">' + r.GF + '</td><td class="r">' + r.GA + '</td><td class="r">' + gd + '</td><td class="r b">' + r.Pts + '</td>';
       tb.appendChild(tr);
     });
     t.appendChild(tb); panel.appendChild(t);
