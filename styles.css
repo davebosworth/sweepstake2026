@@ -166,6 +166,12 @@ input:focus, select:focus { outline: none; border-color: var(--green); }
 .chk { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); }
 .chk input { width: auto; }
 .small { font-size: 12px; }
+.red { color: var(--red); }
+
+/* odds settings grid */
+.odds-cfg { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 14px 0; }
+.odds-cfg .fld:first-child { grid-column: 1 / -1; }
+@media (max-width: 640px) { .odds-cfg { grid-template-columns: 1fr; } }
 
 /* ---- report tab ---- */
 .report-tab { display: grid; grid-template-columns: 320px 1fr; gap: 24px; align-items: start; }
