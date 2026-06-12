@@ -172,6 +172,9 @@ input:focus, select:focus { outline: none; border-color: var(--green); }
 .odds-cfg { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 14px 0; }
 .odds-cfg .fld:first-child { grid-column: 1 / -1; }
 @media (max-width: 640px) { .odds-cfg { grid-template-columns: 1fr; } }
+.markets { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 12px; }
+.market-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 6px 0; }
+.market-row code { color: var(--gold); font-size: 12px; background: var(--card-2); padding: 2px 6px; border-radius: 4px; }
 
 /* ---- report tab ---- */
 .report-tab { display: grid; grid-template-columns: 320px 1fr; gap: 24px; align-items: start; }

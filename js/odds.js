@@ -104,6 +104,25 @@
     });
   }
 
-  WC.Odds = { fetchAll: fetchAll, getConfig: getConfig, setConfig: setConfig, BASE: BASE };
+  // Discover which World Cup outright markets the account actually has. The
+  // Odds API exposes outright markets as their own sport keys; ?all=true also
+  // returns upcoming/out-of-season ones. Lets the user pick the real winner /
+  // runner-up keys rather than guessing.
+  function listMarkets() {
+    if (!cfg.apiKey) return Promise.reject(new Error('No API key set'));
+    return fetch(BASE + '/sports?all=true&apiKey=' + encodeURIComponent(cfg.apiKey))
+      .then(function (r) {
+        if (r.status === 401) throw new Error('Invalid API key (401)');
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
+      .then(function (list) {
+        return (list || []).filter(function (s) {
+          return /world.?cup/i.test(s.key || '') || /world cup/i.test(s.title || '') || /world cup/i.test(s.description || '');
+        });
+      });
+  }
+
+  WC.Odds = { fetchAll: fetchAll, listMarkets: listMarkets, getConfig: getConfig, setConfig: setConfig, BASE: BASE };
 
 })(window.WC = window.WC || {});

@@ -321,6 +321,37 @@
 
   /* ---- Odds (The Odds API) ------------------------------------------------ */
   var oddsState = { status: 'idle', rows: [], error: null, updatedAt: null };
+  var marketState = { status: 'idle', list: [], error: null };
+
+  function discoverMarkets() {
+    marketState.status = 'loading'; render();
+    WC.Odds.listMarkets().then(function (list) {
+      marketState.list = list; marketState.status = 'ok'; render();
+    }).catch(function (e) {
+      marketState.status = 'error'; marketState.error = (e && e.message) || 'failed'; render();
+    });
+  }
+
+  function marketsBlock() {
+    if (marketState.status === 'idle') return el('span');
+    var box = el('div', { class: 'markets' });
+    if (marketState.status === 'loading') { box.appendChild(el('p', { class: 'muted small' }, ['Looking up markets…'])); return box; }
+    if (marketState.status === 'error') { box.appendChild(el('p', { class: 'small red' }, ['Market lookup failed — ' + marketState.error])); return box; }
+    if (!marketState.list.length) {
+      box.appendChild(el('p', { class: 'muted small' }, ['No World Cup outright markets found on this key — the winner market is usually soccer_fifa_world_cup_winner, and a runner-up market may simply not be offered.']));
+      return box;
+    }
+    box.appendChild(el('div', { class: 'td-label' }, ['World Cup markets on your key']));
+    marketState.list.forEach(function (s) {
+      box.appendChild(el('div', { class: 'market-row' }, [
+        el('code', null, [s.key]),
+        el('span', { class: 'muted small' }, [' ' + (s.title || '')]),
+        el('button', { class: 'btn small', onclick: function () { WC.Odds.setConfig({ winnerKey: s.key }); render(); } }, ['Use as winner']),
+        el('button', { class: 'btn small', onclick: function () { WC.Odds.setConfig({ runnerUpKey: s.key }); render(); } }, ['Use as runner-up'])
+      ]));
+    });
+    return box;
+  }
 
   function loadOdds() {
     var cfg = WC.Odds.getConfig();
@@ -355,8 +386,10 @@
       ]),
       el('div', { class: 'report-btns', style: 'flex-direction:row;flex-wrap:wrap' }, [
         el('button', { class: 'btn primary', onclick: function () { WC.Odds.setConfig(draft); loadOdds(); } }, ['Save & load odds']),
-        el('button', { class: 'btn', onclick: loadOdds }, ['↻ Refresh'])
-      ])
+        el('button', { class: 'btn', onclick: loadOdds }, ['↻ Refresh']),
+        el('button', { class: 'btn', onclick: function () { WC.Odds.setConfig(draft); discoverMarkets(); } }, ['🔍 Find World Cup markets'])
+      ]),
+      marketsBlock()
     ]);
     root.appendChild(settings);
 
