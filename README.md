@@ -33,8 +33,13 @@ On load the app fetches from ESPN's free, no-key feed
    red cards. These stream in just after, filling the Disciplinary prize and
    the report's scorers. A status pill in the header shows progress.
 
-Everything below is recomputed from that match list on every render — nothing
-is cached to disk:
+A tiny **session cache** keeps repeat loads light: finished-match scorers/cards
+and past days' scoreboards never change, so they're reused for the browser-tab
+session, while today's games re-check on a short (~60s) TTL so live scores stay
+fresh. It lives in `sessionStorage` and clears when the tab closes — no real
+state is persisted.
+
+Everything below is recomputed from that match list on every render:
 
 - **Group standings** (P/W/D/L/GF/GA/GD/Pts)
 - **Disciplinary Prize** — card points per *single team* (Red = 3, Yellow = 1),

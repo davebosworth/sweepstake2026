@@ -154,6 +154,32 @@
     return { scorers: scorers, cards: cards };
   }
 
+  /* ---- tiny session cache -------------------------------------------------
+     Keeps repeat loads light without persisting real state: finished-match
+     summaries (scorers/cards) and past days' scoreboards never change, so they
+     are reused for the browser-tab session; today's scoreboard re-checks after
+     a short TTL so live scores stay fresh. Cleared when the tab closes. */
+  var CACHE_KEY = 'wc26-cache-v1';
+  var TTL_LIVE = 60 * 1000;             // today / future days
+  var TTL_FINAL = 12 * 60 * 60 * 1000;  // past days & finished summaries
+  var mem = { scoreboard: {}, summary: {} };
+  var ss = (function () { try { return (typeof sessionStorage !== 'undefined') ? sessionStorage : null; } catch (e) { return null; } })();
+
+  if (ss) { try { var raw = ss.getItem(CACHE_KEY); if (raw) { var o = JSON.parse(raw); mem.scoreboard = o.scoreboard || {}; mem.summary = o.summary || {}; } } catch (e) {} }
+
+  var persistTimer = null;
+  function persist() {
+    if (!ss || persistTimer) return;
+    persistTimer = setTimeout(function () {
+      persistTimer = null;
+      try { ss.setItem(CACHE_KEY, JSON.stringify(mem)); }
+      catch (e) { try { ss.removeItem(CACHE_KEY); } catch (e2) {} } // quota: drop the cache rather than fail
+    }, 300);
+  }
+
+  function todayUTC() { return new Date().toISOString().slice(0, 10); }
+  function clone(o) { return JSON.parse(JSON.stringify(o)); }
+
   /* ---- network ------------------------------------------------------------ */
   function fetchJSON(url) {
     return fetch(url, { headers: { 'Accept': 'application/json' } }).then(function (r) {
@@ -163,19 +189,28 @@
   }
 
   function fetchScoreboard(dateISO) {
-    return fetchJSON(BASE + '/scoreboard?dates=' + compact(dateISO))
-      .then(function (data) {
-        return (data.events || []).map(parseEvent).filter(Boolean);
-      });
+    var ttl = dateISO < todayUTC() ? TTL_FINAL : TTL_LIVE;
+    var c = mem.scoreboard[dateISO];
+    if (c && (Date.now() - c.ts) < ttl) return Promise.resolve(c.matches.map(clone));
+    return fetchJSON(BASE + '/scoreboard?dates=' + compact(dateISO)).then(function (data) {
+      var matches = (data.events || []).map(parseEvent).filter(Boolean);
+      mem.scoreboard[dateISO] = { ts: Date.now(), matches: matches };
+      persist();
+      return matches.map(clone);
+    });
   }
 
   function fetchDetails(match) {
     if (!match._espnId) return Promise.resolve(match);
+    var c = mem.summary[match._espnId];
+    if (c) { match.scorers = clone(c.scorers); match.cards = clone(c.cards); return Promise.resolve(match); }
     return fetchJSON(BASE + '/summary?event=' + match._espnId)
       .then(function (s) {
         var d = parseSummary(s);
         match.scorers = d.scorers;
         match.cards = d.cards;
+        mem.summary[match._espnId] = { scorers: d.scorers, cards: d.cards };
+        persist();
         return match;
       })
       .catch(function () { return match; }); // detail is best-effort
