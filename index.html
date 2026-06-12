@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#06231a" />
+  <title>WC26 Sweepstake Tracker</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">★</span>
+      <div>
+        <h1>World Cup 2026 · Sweepstake</h1>
+        <p>Tracker &amp; Morning Report</p>
+      </div>
+    </div>
+    <div class="tools">
+      <button id="btn-sample" class="btn ghost">Load sample</button>
+      <button id="btn-import" class="btn ghost">Import</button>
+      <button id="btn-export" class="btn ghost">Export</button>
+      <button id="btn-reset" class="btn ghost danger">Reset</button>
+    </div>
+  </header>
+
+  <nav id="tabs" class="tabs"></nav>
+
+  <main id="view" class="view"></main>
+
+  <!-- Match editor modal -->
+  <div id="modal" class="modal">
+    <div class="modal-card">
+      <div class="modal-top">
+        <h2 id="modal-title">Add match</h2>
+        <button id="modal-close" class="icon-btn" aria-label="Close">✕</button>
+      </div>
+      <div id="modal-body" class="modal-body"></div>
+      <div class="modal-foot">
+        <button id="modal-cancel" class="btn ghost">Cancel</button>
+        <button id="modal-save" class="btn primary">Save match</button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="appfoot">
+    Data saves to this browser. Export the JSON to back up or share with the group.
+  </footer>
+
+  <script src="js/data.js"></script>
+  <script src="js/sample.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/standings.js"></script>
+  <script src="js/report.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
