@@ -157,7 +157,9 @@
      summary (scorers/cards) is only fetched/cached for finished matches.
      In-play and upcoming days are always re-fetched so live scores stay fresh.
      Lives in sessionStorage and clears when the tab closes. */
-  var CACHE_KEY = 'wc26-cache-v1';
+  // Bump the version whenever the parsed match shape changes, so stale
+  // session caches from an older build are discarded rather than reused.
+  var CACHE_KEY = 'wc26-cache-v2';
   var mem = { scoreboard: {}, summary: {} };
   var ss = (function () { try { return (typeof sessionStorage !== 'undefined') ? sessionStorage : null; } catch (e) { return null; } })();
 
