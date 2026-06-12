@@ -273,13 +273,20 @@
     var startDate = state.startDate || WC.DEFAULT_START_DATE;
     var yDate = shiftDate(reportDate, -1);
 
+    // True chronological order by kick-off instant (a post-midnight game sorts
+    // after the same match day's earlier kick-offs, not before).
+    function byTs(a, b) {
+      if (a._ts && b._ts) return a._ts - b._ts;
+      return (a.kickoff || '').localeCompare(b.kickoff || '');
+    }
+
     var results = state.matches.filter(function (m) {
       return WC.Standings.isFinished(m) && m.date === yDate;
-    }).sort(function (a, b) { return (a.kickoff || '').localeCompare(b.kickoff || ''); });
+    }).sort(byTs);
 
     var fixtures = state.matches.filter(function (m) {
       return m.date === reportDate && !WC.Standings.isFinished(m);
-    }).sort(function (a, b) { return (a.kickoff || '').localeCompare(b.kickoff || ''); });
+    }).sort(byTs);
 
     var worst = WC.Standings.worstTeams(state);
     var disc = WC.Standings.disciplinary(state);

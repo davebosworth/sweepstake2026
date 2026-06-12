@@ -99,6 +99,7 @@
       _rawHome: rawHome,
       _rawAway: rawAway,
       _state: state,
+      _ts: Date.parse(ev.date) || 0,   // absolute kick-off instant, for true chronological order
       date: matchDay,              // local match day (ESPN's grouping), not UK date
       kickoff: ukTime(ev.date),    // UK time, for display only
       clock: live ? (get(comp, ['status', 'displayClock'], '') || '') : '',     // e.g. "67'"
@@ -163,7 +164,7 @@
      Lives in sessionStorage and clears when the tab closes. */
   // Bump the version whenever the parsed match shape changes, so stale
   // session caches from an older build are discarded rather than reused.
-  var CACHE_KEY = 'wc26-cache-v2';
+  var CACHE_KEY = 'wc26-cache-v3';
   var mem = { scoreboard: {}, summary: {} };
   var ss = (function () { try { return (typeof sessionStorage !== 'undefined') ? sessionStorage : null; } catch (e) { return null; } })();
 

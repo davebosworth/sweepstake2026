@@ -29,6 +29,13 @@
   function prettyDate(d) {
     return new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
   }
+  // Chronological order by the true kick-off instant, so a post-midnight game
+  // (grouped on the previous match day for time-zone reasons) still sorts after
+  // that day's earlier kick-offs. Falls back to the UK HH:MM string.
+  function byKickoff(a, b) {
+    if (a._ts && b._ts) return a._ts - b._ts;
+    return (a.kickoff || '').localeCompare(b.kickoff || '');
+  }
 
   /* ---- TAB: Dashboard ----------------------------------------------------- */
   function renderDashboard() {
@@ -41,14 +48,28 @@
 
     var root = el('div');
 
-    var liveNow = st.matches.filter(function (m) { return m.status === 'live'; })
-      .sort(function (a, b) { return (a.kickoff || '').localeCompare(b.kickoff || ''); });
+    var liveNow = st.matches.filter(function (m) { return m.status === 'live'; }).sort(byKickoff);
     if (liveNow.length) {
       var lp = el('div', { class: 'panel live-panel' });
       lp.appendChild(el('h2', null, [el('span', { class: 'live-dot' }), 'Live Now ',
         el('span', { class: 'sub' }, [liveNow.length + ' in play · auto-updating'])]));
       liveNow.forEach(function (m) { lp.appendChild(matchRow(m)); });
       root.appendChild(lp);
+    }
+
+    // Upcoming fixtures (the next few not-yet-started games, in true play order).
+    var upcoming = st.matches.filter(function (m) { return m.status === 'scheduled'; })
+      .sort(byKickoff).slice(0, 6);
+    if (upcoming.length) {
+      var up = el('div', { class: 'panel' });
+      up.appendChild(el('h2', null, ['Upcoming ', el('span', { class: 'sub' }, ['next ' + upcoming.length + ' fixtures'])]));
+      var byDate = {};
+      upcoming.forEach(function (m) { (byDate[m.date || 'Undated'] = byDate[m.date || 'Undated'] || []).push(m); });
+      Object.keys(byDate).sort().forEach(function (d) {
+        up.appendChild(el('h3', { class: 'date-head' }, [d === 'Undated' ? 'Undated' : prettyDate(d)]));
+        byDate[d].forEach(function (m) { up.appendChild(matchRow(m)); });
+      });
+      root.appendChild(up);
     }
 
     var grid = el('div', { class: 'grid' });
@@ -314,7 +335,7 @@
     st.matches.forEach(function (m) { (byDate[m.date || 'Undated'] = byDate[m.date || 'Undated'] || []).push(m); });
     Object.keys(byDate).sort().forEach(function (date) {
       root.appendChild(el('h3', { class: 'date-head' }, [date === 'Undated' ? 'Undated' : prettyDate(date)]));
-      byDate[date].sort(function (a, b) { return (a.kickoff || '').localeCompare(b.kickoff || ''); })
+      byDate[date].sort(byKickoff)
         .forEach(function (m) { root.appendChild(matchRow(m)); });
     });
     return root;
