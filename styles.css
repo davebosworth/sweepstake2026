@@ -168,4 +168,28 @@ input:focus, select:focus { outline: none; border-color: var(--green); }
 }
 .preview svg { width: 100%; height: auto; display: block; border-radius: 12px; }
 
+/* ---- ESPN sync modal ---- */
+.modal-card.wide { max-width: 720px; }
+.small { font-size: 12px; }
+.sync-bar { display: flex; align-items: center; gap: 14px; margin: 6px 0 4px; }
+.sync-status { font-size: 13px; }
+.sync-status.red { color: var(--red); }
+.green { color: var(--green); }
+.sync-results { display: flex; flex-direction: column; gap: 6px; max-height: 46vh; overflow-y: auto; margin-top: 8px; }
+.sync-row {
+  display: grid; grid-template-columns: auto 78px 130px 1fr auto; align-items: center; gap: 10px;
+  padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; cursor: pointer;
+}
+.sync-row.unmapped { opacity: 0.7; border-color: var(--red); }
+.sync-row input { width: auto; }
+.sync-badge { font-size: 10px; font-weight: bold; letter-spacing: 1px; text-align: center; padding: 3px 6px; border-radius: 6px; }
+.sync-badge.new { background: rgba(55,210,122,0.18); color: var(--green); }
+.sync-badge.update { background: rgba(244,196,48,0.18); color: var(--gold); }
+.sync-badge.same { background: rgba(143,179,164,0.15); color: var(--muted); }
+.sync-badge.unmapped { background: rgba(232,80,58,0.18); color: var(--red); }
+.sync-when { font-variant-numeric: tabular-nums; }
+.sync-label { font-weight: bold; }
+.sync-extra { font-size: 11px; }
+@media (max-width: 620px) { .sync-row { grid-template-columns: auto 1fr; } .sync-when, .sync-extra { display: none; } }
+
 .appfoot { text-align: center; color: var(--muted); font-size: 12px; padding: 24px; }

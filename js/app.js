@@ -108,6 +108,7 @@
 
     var bar = el('div', { class: 'rowbar' }, [
       el('button', { class: 'btn primary', onclick: function () { openModal(null); } }, ['+ Add match']),
+      el('button', { class: 'btn', onclick: openSync }, ['⟳ Sync from ESPN']),
       el('span', { class: 'count' }, [st.matches.length + ' match' + (st.matches.length === 1 ? '' : 'es')])
     ]);
     root.appendChild(bar);
@@ -274,6 +275,144 @@
     Store.upsertMatch(m);
     closeModal();
   }
+
+  /* ---- ESPN sync ---------------------------------------------------------- */
+  function dateRange(fromISO, toISO) {
+    var out = [], d = new Date(fromISO + 'T00:00:00'), end = new Date(toISO + 'T00:00:00');
+    if (isNaN(d) || isNaN(end) || end < d) return [fromISO];
+    var guard = 0;
+    while (d <= end && guard++ < 60) { out.push(d.toISOString().slice(0, 10)); d.setDate(d.getDate() + 1); }
+    return out;
+  }
+
+  // Pair a fetched match to an existing one by date + the unordered team set.
+  function findExisting(fetched) {
+    var key = fetched.date + '|' + [fetched.home, fetched.away].sort().join('|');
+    return Store.get().matches.filter(function (m) {
+      return (m.date + '|' + [m.home, m.away].sort().join('|')) === key;
+    })[0] || null;
+  }
+
+  // Build the match object to save, merging a fetch onto any existing record.
+  function mergeFetched(fetched, existing) {
+    var m = existing ? JSON.parse(JSON.stringify(existing)) : { id: '' };
+    m.date = fetched.date; m.kickoff = fetched.kickoff || m.kickoff || '';
+    m.group = fetched.group || (m.group || '');
+    m.home = fetched.home; m.away = fetched.away;
+    m.status = fetched.status; m.homeScore = fetched.homeScore; m.awayScore = fetched.awayScore;
+    // Only overwrite scorers/cards when the fetch actually carried detail,
+    // so a failed/partial summary never wipes manual entries.
+    if (fetched.scorers && fetched.scorers.length) m.scorers = fetched.scorers;
+    else m.scorers = m.scorers || [];
+    if (fetched.cards && fetched.cards.length) m.cards = fetched.cards;
+    else m.cards = m.cards || [];
+    return m;
+  }
+
+  function syncStatus(fetched) {
+    if (!fetched.home || !fetched.away) return 'unmapped';
+    var ex = findExisting(fetched);
+    if (!ex) return 'new';
+    if (ex.status === fetched.status && ex.homeScore === fetched.homeScore && ex.awayScore === fetched.awayScore) return 'same';
+    return 'update';
+  }
+
+  function openSync() {
+    var existing = $('#sync-modal');
+    if (existing) existing.remove();
+
+    var today = todayISO();
+    var from = el('input', { type: 'date', value: shiftISO(today, -1) });
+    var to = el('input', { type: 'date', value: today });
+    var details = el('input', { type: 'checkbox' }); details.checked = true;
+    var resultBox = el('div', { class: 'sync-results' });
+    var statusLine = el('div', { class: 'sync-status muted' }, ['Pick a date range and fetch from ESPN.']);
+    var fetchedRows = [];
+
+    function doFetch() {
+      statusLine.className = 'sync-status muted';
+      statusLine.textContent = 'Fetching from ESPN…';
+      resultBox.innerHTML = '';
+      var dates = dateRange(from.value, to.value);
+      WC.ESPN.sync(dates, details.checked).then(function (matches) {
+        fetchedRows = matches;
+        renderResults();
+      }).catch(function (err) {
+        statusLine.className = 'sync-status red';
+        statusLine.innerHTML = 'Could not reach ESPN (' + (err && err.message ? err.message : 'network/CORS error') +
+          '). The endpoint is unofficial — if this persists, add matches manually or try again later.';
+      });
+    }
+
+    function renderResults() {
+      resultBox.innerHTML = '';
+      if (!fetchedRows.length) {
+        statusLine.className = 'sync-status muted';
+        statusLine.textContent = 'No matches returned for that range.';
+        return;
+      }
+      var counts = { new: 0, update: 0, same: 0, unmapped: 0 };
+      fetchedRows.forEach(function (f) { f._status = syncStatus(f); counts[f._status]++; });
+      statusLine.className = 'sync-status';
+      statusLine.innerHTML = fetchedRows.length + ' match(es): ' +
+        '<b class="green">' + counts.new + ' new</b>, ' +
+        '<b class="gold">' + counts.update + ' updated</b>, ' +
+        counts.same + ' unchanged' +
+        (counts.unmapped ? ', <b class="red">' + counts.unmapped + ' unmapped</b>' : '');
+
+      fetchedRows.sort(function (a, b) { return (a.date + a.kickoff).localeCompare(b.date + b.kickoff); });
+      fetchedRows.forEach(function (f, i) {
+        var ok = f._status !== 'unmapped' && f._status !== 'same';
+        var cb = el('input', { type: 'checkbox' }); cb.checked = ok; cb.disabled = f._status === 'unmapped';
+        f._include = cb.checked;
+        cb.addEventListener('change', function () { f._include = cb.checked; });
+
+        var label = f._status === 'unmapped'
+          ? (f._rawHome + ' v ' + f._rawAway + ' — name not recognised')
+          : (f.home + ' ' + (f.status === 'ft' ? (f.homeScore + '–' + f.awayScore) : 'vs') + ' ' + f.away);
+        var extra = [];
+        if (f.scorers && f.scorers.length) extra.push(f.scorers.length + ' scorer(s)');
+        if (f.cards && f.cards.length) extra.push(f.cards.length + ' card(s)');
+
+        resultBox.appendChild(el('label', { class: 'sync-row ' + f._status }, [
+          cb,
+          el('span', { class: 'sync-badge ' + f._status }, [f._status.toUpperCase()]),
+          el('span', { class: 'sync-when muted' }, [f.date + ' ' + (f.kickoff || '')]),
+          el('span', { class: 'sync-label' }, [label]),
+          el('span', { class: 'sync-extra muted' }, [extra.join(' · ')])
+        ]));
+      });
+    }
+
+    function doImport() {
+      var chosen = fetchedRows.filter(function (f) { return f._include && f._status !== 'unmapped'; });
+      if (!chosen.length) { statusLine.className = 'sync-status red'; statusLine.textContent = 'Nothing selected to import.'; return; }
+      chosen.forEach(function (f) { Store.upsertMatch(mergeFetched(f, findExisting(f))); });
+      close();
+    }
+
+    function close() { var m = $('#sync-modal'); if (m) m.remove(); }
+
+    var modal = el('div', { id: 'sync-modal', class: 'modal open', onclick: function (e) { if (e.target.id === 'sync-modal') close(); } }, [
+      el('div', { class: 'modal-card wide' }, [
+        el('div', { class: 'modal-top' }, [el('h2', null, ['Sync from ESPN']), el('button', { class: 'icon-btn', onclick: close }, ['✕'])]),
+        el('div', { class: 'modal-body' }, [
+          el('p', { class: 'muted small' }, ['Pulls fixtures, results, goalscorers and cards from ESPN’s free World Cup feed and maps team names to the sweepstake. Review below before importing — nothing is saved until you do.']),
+          el('div', { class: 'row2' }, [field('From', from), field('To', to)]),
+          el('label', { class: 'chk' }, [details, el('span', null, ['Include goalscorers & cards (extra requests, slower)'])]),
+          el('div', { class: 'sync-bar' }, [el('button', { class: 'btn primary', onclick: doFetch }, ['Fetch']), statusLine]),
+          resultBox
+        ]),
+        el('div', { class: 'modal-foot' }, [
+          el('button', { class: 'btn ghost', onclick: close }, ['Cancel']),
+          el('button', { class: 'btn primary', onclick: doImport }, ['Import selected'])
+        ])
+      ])
+    ]);
+    document.body.appendChild(modal);
+  }
+
+  function shiftISO(iso, days) { var d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() + days); return d.toISOString().slice(0, 10); }
 
   /* ---- TAB: Standings ----------------------------------------------------- */
   function renderStandings() {

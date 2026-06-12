@@ -37,10 +37,36 @@ cards once it's played. From that single source of truth the app computes:
 | Tab | What it's for |
 |---|---|
 | **Dashboard** | At-a-glance leaders for both competitions |
-| **Fixtures & Results** | Add/edit matches, scores, scorers and cards |
+| **Fixtures & Results** | Add/edit matches, **or Sync from ESPN** |
 | **Standings** | Full group league tables |
 | **Morning Report** | Live preview + **Export PNG** (1080px portrait) |
 | **Allocations** | The fixed player → team reference |
+
+## Auto-fill from ESPN
+
+The **⟳ Sync from ESPN** button (Fixtures tab) pulls fixtures, results,
+goalscorers and yellow/red cards straight from ESPN's free, no-key World Cup
+feed (`site.api.espn.com/.../fifa.world`) — enough to power the scores, the
+goalscorers in the report *and* the disciplinary prize.
+
+- Pick a date range, hit **Fetch**, and review what came back. Each row is
+  flagged **NEW / UPDATED / UNCHANGED / UNMAPPED**; nothing is saved until you
+  click **Import selected**.
+- Team names are mapped to the sweepstake's localised spellings (Netherlands →
+  Holland, Korea Republic → South Korea, Côte d'Ivoire → Ivory Coast, and so
+  on). Anything it can't recognise is flagged rather than guessed.
+- Importing **merges** onto existing matches by date + teams, so it won't
+  create duplicates, and a failed/partial detail fetch never wipes manual
+  entries.
+
+Notes & caveats:
+- ESPN's endpoint is **unofficial** — it can change or rate-limit without
+  notice. The review step and manual entry are always there as a fallback.
+- It's called directly from your browser (no key, no backend). If a corporate
+  network or extension blocks it you'll see a clear error; manual entry still
+  works.
+- Group labels aren't always present on the feed; existing group labels are
+  preserved on update.
 
 ## The Morning Report
 
