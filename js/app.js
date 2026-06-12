@@ -200,6 +200,94 @@
     return panel;
   }
 
+  /* ---- TAB: Player Tracker ------------------------------------------------ */
+  // For each player, average the winner odds across their six teams (shorter
+  // average = stronger allocation) and sum the win probabilities (combined
+  // chance one of their teams lifts the cup). Ranked best allocation first.
+  function playerStats() {
+    var byTeam = {};
+    if (oddsState.status === 'ok') oddsState.rows.forEach(function (r) { byTeam[r.team] = r; });
+    return WC.PLAYERS.map(function (p) {
+      var odds = [], probSum = 0, best = null;
+      var teams = p.teams.map(function (t) {
+        var r = byTeam[t] || {};
+        var o = (r.winnerOdds != null) ? r.winnerOdds : null;
+        if (o != null) {
+          odds.push(o);
+          if (r.winnerProb != null) probSum += r.winnerProb;
+          if (!best || o < best.odds) best = { team: t, odds: o };
+        }
+        return { team: t, odds: o, prob: (r.winnerProb != null ? r.winnerProb : null) };
+      }).sort(function (a, b) {
+        if (a.odds == null && b.odds == null) return a.team.localeCompare(b.team);
+        if (a.odds == null) return 1;
+        if (b.odds == null) return -1;
+        return a.odds - b.odds;
+      });
+      var avg = odds.length ? odds.reduce(function (s, x) { return s + x; }, 0) / odds.length : null;
+      return { name: p.name, teams: teams, avgOdds: avg, winPct: probSum, priced: odds.length, best: best };
+    }).sort(function (a, b) {
+      if (a.avgOdds == null && b.avgOdds == null) return 0;
+      if (a.avgOdds == null) return 1;
+      if (b.avgOdds == null) return -1;
+      return a.avgOdds - b.avgOdds;
+    });
+  }
+
+  function renderPlayers() {
+    var root = el('div');
+    var panel = el('div', { class: 'panel' });
+    panel.appendChild(el('h2', null, ['Allocation Quality ',
+      el('span', { class: 'sub' }, ['ranked by average winner odds of each player’s six teams'])]));
+
+    if (oddsState.status === 'nokey') {
+      panel.appendChild(el('p', { class: 'empty' }, ['Add a betting-odds API key on the ', el('b', null, ['Winner Odds']), ' tab to rank allocations.']));
+      root.appendChild(panel); return root;
+    }
+    if (oddsState.status === 'loading') { panel.appendChild(el('p', { class: 'empty' }, ['Loading odds…'])); root.appendChild(panel); return root; }
+    if (oddsState.status === 'error') { panel.appendChild(el('p', { class: 'empty red' }, ['Odds unavailable — ' + oddsState.error])); root.appendChild(panel); return root; }
+
+    var stats = playerStats();
+    var t = el('table', { class: 'tbl' });
+    t.innerHTML = '<thead><tr><th>#</th><th>Player</th><th class="r">Avg odds</th><th class="r">Combined win %</th><th>Strongest team</th></tr></thead>';
+    var tb = el('tbody');
+    stats.forEach(function (s, i) {
+      var tr = el('tr', i === 0 ? { class: 'leader' } : null);
+      var strong = s.best ? s.best.team + ' (' + fmtOdds(s.best.odds) + ')' : '—';
+      tr.innerHTML = '<td>' + (i + 1) + (i === 0 ? ' ★' : '') + '</td><td class="b">' + s.name +
+        '</td><td class="r b gold">' + fmtOdds(s.avgOdds) + '</td><td class="r">' + fmtPct(s.winPct) +
+        '</td><td>' + strong + '</td>';
+      tb.appendChild(tr);
+    });
+    t.appendChild(tb); panel.appendChild(t);
+    panel.appendChild(el('p', { class: 'muted small', style: 'margin:10px 2px 0' }, ['Lower average odds = a stronger set of teams. Combined win % is the chance that one of a player’s six teams wins the tournament.']));
+    root.appendChild(panel);
+
+    // Per-player breakdown of the six teams, shortest price first.
+    var breakdown = el('div', { class: 'panel' });
+    breakdown.appendChild(el('h2', null, ['Squad Breakdown ', el('span', { class: 'sub' }, ['each player’s six teams']) ]));
+    stats.forEach(function (s, i) {
+      var det = el('details', i === 0 ? { open: 'open' } : null);
+      det.appendChild(el('summary', null, [
+        el('span', { class: 'pl-rank' }, ['#' + (i + 1)]),
+        el('b', null, [s.name]),
+        el('span', { class: 'muted small' }, ['  avg ' + fmtOdds(s.avgOdds) + ' · ' + fmtPct(s.winPct) + ' combined'])
+      ]));
+      var tt = el('table', { class: 'tbl' });
+      tt.innerHTML = '<thead><tr><th>Team</th><th class="r">Winner odds</th><th class="r">Win %</th></tr></thead>';
+      var tbb = el('tbody');
+      s.teams.forEach(function (tm) {
+        var tr = el('tr');
+        tr.innerHTML = '<td>' + tm.team + '</td><td class="r">' + fmtOdds(tm.odds) + '</td><td class="r muted">' + fmtPct(tm.prob) + '</td>';
+        tbb.appendChild(tr);
+      });
+      tt.appendChild(tbb); det.appendChild(tt);
+      breakdown.appendChild(det);
+    });
+    root.appendChild(breakdown);
+    return root;
+  }
+
   /* ---- TAB: Fixtures & Results (read-only) -------------------------------- */
   function renderFixtures() {
     var st = Live.get();
@@ -525,6 +613,7 @@
     ['fixtures', 'Fixtures & Results', renderFixtures],
     ['standings', 'Standings', renderStandings],
     ['odds', 'Winner Odds', renderOdds],
+    ['players', 'Player Tracker', renderPlayers],
     ['report', 'Morning Report', renderReport],
     ['allocations', 'Allocations', renderAllocations]
   ];

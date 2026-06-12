@@ -121,6 +121,16 @@ body {
 .empty { color: var(--muted); font-style: italic; }
 .empty.big { text-align: center; padding: 60px 20px; font-size: 16px; }
 
+/* ---- player tracker breakdown ---- */
+.panel details { border-top: 1px solid var(--border); padding: 4px 0; }
+.panel details:first-of-type { border-top: none; }
+.panel summary { cursor: pointer; padding: 10px 2px; display: flex; align-items: baseline; gap: 8px; list-style: none; }
+.panel summary::-webkit-details-marker { display: none; }
+.panel summary::before { content: '▸'; color: var(--muted); font-size: 11px; }
+.panel details[open] summary::before { content: '▾'; }
+.panel summary .pl-rank { color: var(--gold); font-weight: bold; min-width: 26px; }
+.panel details table { margin: 2px 0 12px; }
+
 /* ---- fixtures list ---- */
 .count { color: var(--muted); font-size: 14px; margin: 0 0 14px; }
 .date-head { color: var(--green); font-size: 14px; letter-spacing: 1px; text-transform: uppercase; margin: 22px 0 10px; }
