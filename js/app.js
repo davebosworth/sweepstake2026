@@ -120,8 +120,8 @@
 
   function matchRow(m) {
     var fin = S.isFinished(m);
-    var score = fin ? (m.homeScore + ' – ' + m.awayScore) : (m.kickoff || '—');
-    var main = [
+    var score = fin ? (m.homeScore + ' – ' + m.awayScore) : (m.kickoff ? m.kickoff + ' UK' : '—');
+    var head = el('div', { class: 'match-head' }, [
       el('span', { class: 'tag' }, [m.group || '—']),
       el('span', { class: 'mr-teams' }, [
         el('b', null, [m.home || '?']), ' ',
@@ -129,36 +129,80 @@
         el('b', null, [m.away || '?'])
       ]),
       el('span', { class: 'mr-owners muted' }, [WC.ownerOf(m.home) + ' v ' + WC.ownerOf(m.away)])
-    ];
+    ]);
     var cardCount = (m.cards || []).length;
-    if (cardCount) main.push(el('span', { class: 'mr-cards' }, [cardCount + ' card' + (cardCount === 1 ? '' : 's')]));
-    return el('div', { class: 'match ' + (fin ? 'is-ft' : 'is-sched') }, [el('div', { class: 'match-main' }, main)]);
+    if (cardCount) head.appendChild(el('span', { class: 'mr-cards' }, [cardCount + ' card' + (cardCount === 1 ? '' : 's')]));
+
+    var matchEl = el('div', { class: 'match ' + (fin ? 'is-ft' : 'is-sched') }, [head]);
+
+    // Finished matches expand to show each team's goalscorers and cards.
+    if (fin) {
+      matchEl.classList.add('expandable');
+      head.appendChild(el('span', { class: 'chevron' }, ['▾']));
+      matchEl.appendChild(el('div', { class: 'match-details' }, [teamDetail('home', m), teamDetail('away', m)]));
+      head.addEventListener('click', function () { matchEl.classList.toggle('open'); });
+    }
+    return matchEl;
+  }
+
+  function teamDetail(side, m) {
+    var team = side === 'home' ? m.home : m.away;
+    var scorers = (m.scorers || []).filter(function (s) { return s.team === side; });
+    var cards = (m.cards || []).filter(function (c) { return c.team === side; });
+
+    var col = el('div', { class: 'td-col' }, [
+      el('div', { class: 'td-team' }, [team || '?', el('span', { class: 'muted' }, [' · ' + WC.ownerOf(team)])])
+    ]);
+
+    var goals = el('div', { class: 'td-block' }, [el('div', { class: 'td-label' }, ['Goals'])]);
+    if (scorers.length) scorers.forEach(function (s) { goals.appendChild(el('div', { class: 'td-item' }, ['⚽ ' + s.name])); });
+    else goals.appendChild(el('div', { class: 'td-item muted' }, ['—']));
+    col.appendChild(goals);
+
+    var cardBlock = el('div', { class: 'td-block' }, [el('div', { class: 'td-label' }, ['Cards'])]);
+    if (cards.length) cards.forEach(function (c) {
+      cardBlock.appendChild(el('div', { class: 'td-item' }, [el('span', { class: 'cardchip ' + c.type }), ' ' + (c.player || 'Unknown')]));
+    });
+    else cardBlock.appendChild(el('div', { class: 'td-item muted' }, ['—']));
+    col.appendChild(cardBlock);
+    return col;
   }
 
   /* ---- TAB: Standings ----------------------------------------------------- */
+  function standingsPanel(label, rows) {
+    var panel = el('div', { class: 'panel' });
+    panel.appendChild(el('h2', null, [label]));
+    var t = el('table', { class: 'tbl' });
+    t.innerHTML = '<thead><tr><th>#</th><th>Team</th><th>Owner</th><th class="r">P</th><th class="r">W</th><th class="r">D</th><th class="r">L</th><th class="r">GF</th><th class="r">GA</th><th class="r">GD</th><th class="r">Pts</th></tr></thead>';
+    var tb = el('tbody');
+    rows.forEach(function (r) {
+      var gd = (r.GD > 0 ? '+' : '') + r.GD;
+      var tr = el('tr');
+      tr.innerHTML = '<td>' + r.pos + '</td><td>' + r.team + '</td><td class="muted">' + r.owner + '</td><td class="r">' + r.P + '</td><td class="r">' + r.W + '</td><td class="r">' + r.D + '</td><td class="r">' + r.L + '</td><td class="r">' + r.GF + '</td><td class="r">' + r.GA + '</td><td class="r">' + gd + '</td><td class="r b">' + r.Pts + '</td>';
+      tb.appendChild(tr);
+    });
+    t.appendChild(tb); panel.appendChild(t);
+    return panel;
+  }
+
   function renderStandings() {
     var st = Live.get();
     if (st.loading) { var r0 = el('div'); r0.appendChild(loadingBlock('Loading standings…')); return r0; }
     var groups = S.groupTables(st);
     var keys = Object.keys(groups).sort();
     var root = el('div');
-    if (!keys.length) { root.appendChild(el('p', { class: 'empty big' }, ['No group data yet.'])); return root; }
+    if (!keys.length) { root.appendChild(el('p', { class: 'empty big' }, ['No standings yet.'])); return root; }
+
+    // ESPN doesn't expose group labels on this feed, so everything lands in one
+    // table — present it full-width as the Overall Table. If real groups ever
+    // appear, lay them out in the grid.
+    if (keys.length === 1) {
+      var label = keys[0] === 'Unassigned' ? 'Overall Table' : keys[0];
+      root.appendChild(standingsPanel(label, groups[keys[0]]));
+      return root;
+    }
     var grid = el('div', { class: 'group-grid' });
-    keys.forEach(function (g) {
-      var panel = el('div', { class: 'panel' });
-      panel.appendChild(el('h2', null, [g]));
-      var t = el('table', { class: 'tbl' });
-      t.innerHTML = '<thead><tr><th>#</th><th>Team</th><th>Owner</th><th class="r">P</th><th class="r">W</th><th class="r">D</th><th class="r">L</th><th class="r">GF</th><th class="r">GA</th><th class="r">GD</th><th class="r">Pts</th></tr></thead>';
-      var tb = el('tbody');
-      groups[g].forEach(function (r) {
-        var gd = (r.GD > 0 ? '+' : '') + r.GD;
-        var tr = el('tr');
-        tr.innerHTML = '<td>' + r.pos + '</td><td>' + r.team + '</td><td class="muted">' + r.owner + '</td><td class="r">' + r.P + '</td><td class="r">' + r.W + '</td><td class="r">' + r.D + '</td><td class="r">' + r.L + '</td><td class="r">' + r.GF + '</td><td class="r">' + r.GA + '</td><td class="r">' + gd + '</td><td class="r b">' + r.Pts + '</td>';
-        tb.appendChild(tr);
-      });
-      t.appendChild(tb); panel.appendChild(t);
-      grid.appendChild(panel);
-    });
+    keys.forEach(function (g) { grid.appendChild(standingsPanel(g === 'Unassigned' ? 'Overall Table' : g, groups[g])); });
     root.appendChild(grid);
     return root;
   }
