@@ -181,24 +181,7 @@
       .catch(function () { return match; }); // detail is best-effort
   }
 
-  /* Fetch a set of dates. If withDetails, also fetch summaries for finished
-     matches to populate scorers/cards. Returns a Promise of normalised matches. */
-  function sync(dateISOs, withDetails) {
-    var jobs = dateISOs.map(fetchScoreboard);
-    return Promise.all(jobs).then(function (lists) {
-      var all = [];
-      lists.forEach(function (l) { all = all.concat(l); });
-      // de-dupe by espn id (a match can appear on adjacent dates)
-      var seen = {}, uniq = [];
-      all.forEach(function (m) { if (!seen[m._espnId]) { seen[m._espnId] = 1; uniq.push(m); } });
-      if (!withDetails) return uniq;
-      var finished = uniq.filter(function (m) { return m.status === 'ft'; });
-      return Promise.all(finished.map(fetchDetails)).then(function () { return uniq; });
-    });
-  }
-
   WC.ESPN = {
-    sync: sync,
     fetchScoreboard: fetchScoreboard,
     fetchDetails: fetchDetails,
     mapTeam: mapTeam,
