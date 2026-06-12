@@ -25,7 +25,9 @@
   var activeTab = 'dashboard';
 
   /* ---- shared date helpers ------------------------------------------------ */
-  function todayISO() { return new Date().toISOString().slice(0, 10); }
+  // "Today" in the same host-region basis the matches are grouped by, so date
+  // windows (dashboard Upcoming, Morning Report) line up with the day headings.
+  function todayISO() { return WC.ESPN.localDay(new Date()); }
   function prettyDate(d) {
     return new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
   }
@@ -60,7 +62,7 @@
     // Upcoming fixtures: the rest of today's and tomorrow's not-yet-started
     // games, in true play order. Match days match how the app groups dates.
     var today = todayISO();
-    var tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    var tomorrow = WC.ESPN.localDay(new Date(Date.now() + 86400000));
     var upcoming = st.matches.filter(function (m) {
       return m.status === 'scheduled' && (m.date === today || m.date === tomorrow);
     }).sort(byKickoff);

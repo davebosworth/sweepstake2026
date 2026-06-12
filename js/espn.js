@@ -52,6 +52,21 @@
 
   function compact(iso) { return iso.replace(/-/g, ''); }       // 2026-06-12 -> 20260612
 
+  // The local match day for a kick-off instant, in the host region's time zone
+  // (WC2026 is in North America). This is what groups a game to the day it is
+  // actually played there: a late-evening US kick-off that falls after midnight
+  // UTC/UK still belongs to the US calendar day, not the next one. Derived from
+  // the true kick-off time so it never depends on which scoreboard query the
+  // event came back from. YYYY-MM-DD.
+  function localDay(input) {
+    var d = (input instanceof Date) ? input : new Date(input);
+    if (isNaN(d)) return null;
+    var p = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit'
+    }).formatToParts(d).reduce(function (a, x) { a[x.type] = x.value; return a; }, {});
+    return p.year + '-' + p.month + '-' + p.day;
+  }
+
   // The UK kick-off time (HH:MM) for display only. The day a match belongs to
   // is the local match day (ESPN's scoreboard date), NOT this — the hosts are
   // 5-8h behind the UK, so a US evening kickoff is the small hours UK time and
@@ -100,7 +115,7 @@
       _rawAway: rawAway,
       _state: state,
       _ts: Date.parse(ev.date) || 0,   // absolute kick-off instant, for true chronological order
-      date: matchDay,              // local match day (ESPN's grouping), not UK date
+      date: (ev.date && localDay(ev.date)) || matchDay,   // day the game is played locally (host time zone)
       kickoff: ukTime(ev.date),    // UK time, for display only
       clock: live ? (get(comp, ['status', 'displayClock'], '') || '') : '',     // e.g. "67'"
       statusDetail: get(comp, ['status', 'type', 'shortDetail'], '') || '',     // e.g. "HT", "1st Half"
@@ -164,7 +179,7 @@
      Lives in sessionStorage and clears when the tab closes. */
   // Bump the version whenever the parsed match shape changes, so stale
   // session caches from an older build are discarded rather than reused.
-  var CACHE_KEY = 'wc26-cache-v3';
+  var CACHE_KEY = 'wc26-cache-v4';
   var mem = { scoreboard: {}, summary: {} };
   var ss = (function () { try { return (typeof sessionStorage !== 'undefined') ? sessionStorage : null; } catch (e) { return null; } })();
 
@@ -180,7 +195,7 @@
     }, 300);
   }
 
-  function todayUTC() { return new Date().toISOString().slice(0, 10); }
+  function todayUTC() { return localDay(new Date()); }   // "today" in the same (host) basis as match days
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
 
   // A day is safe to cache only when nothing on it can still change: it's a
@@ -230,6 +245,7 @@
     fetchScoreboard: fetchScoreboard,
     fetchDetails: fetchDetails,
     mapTeam: mapTeam,
+    localDay: localDay,
     BASE: BASE
   };
 
