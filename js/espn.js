@@ -86,6 +86,8 @@
     var state = get(comp, ['status', 'type', 'state'], 'pre'); // pre | in | post
     var completed = get(comp, ['status', 'type', 'completed'], false);
     var finished = state === 'post' && completed;
+    var live = state === 'in';                       // match in progress right now
+    var hasScore = finished || live;
 
     // Group label if ESPN exposes one (often absent on the scoreboard).
     var group = get(comp, ['notes', 0, 'headline'], '') || get(ev, ['groupId'], '') || '';
@@ -99,12 +101,14 @@
       _state: state,
       date: matchDay,              // local match day (ESPN's grouping), not UK date
       kickoff: ukTime(ev.date),    // UK time, for display only
+      clock: live ? (get(comp, ['status', 'displayClock'], '') || '') : '',     // e.g. "67'"
+      statusDetail: get(comp, ['status', 'type', 'shortDetail'], '') || '',     // e.g. "HT", "1st Half"
       group: group,
       home: mapTeam(rawHome),
       away: mapTeam(rawAway),
-      status: finished ? 'ft' : 'scheduled',
-      homeScore: finished ? toInt(home.score) : null,
-      awayScore: finished ? toInt(away.score) : null,
+      status: finished ? 'ft' : (live ? 'live' : 'scheduled'),
+      homeScore: hasScore ? toInt(home.score) : null,
+      awayScore: hasScore ? toInt(away.score) : null,
       scorers: [],
       cards: []
     };
@@ -181,6 +185,8 @@
   // A day is safe to cache only when nothing on it can still change: it's a
   // past date, or every match returned has finished.
   function isSettled(dateISO, matches) {
+    // Never cache a day with a game in progress, even a past-dated late kickoff.
+    if (matches.some(function (m) { return m.status === 'live'; })) return false;
     if (dateISO < todayUTC()) return true;
     return matches.length > 0 && matches.every(function (m) { return m.status === 'ft'; });
   }
