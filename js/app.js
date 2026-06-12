@@ -57,12 +57,16 @@
       root.appendChild(lp);
     }
 
-    // Upcoming fixtures (the next few not-yet-started games, in true play order).
-    var upcoming = st.matches.filter(function (m) { return m.status === 'scheduled'; })
-      .sort(byKickoff).slice(0, 6);
+    // Upcoming fixtures: the rest of today's and tomorrow's not-yet-started
+    // games, in true play order. Match days match how the app groups dates.
+    var today = todayISO();
+    var tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    var upcoming = st.matches.filter(function (m) {
+      return m.status === 'scheduled' && (m.date === today || m.date === tomorrow);
+    }).sort(byKickoff);
     if (upcoming.length) {
       var up = el('div', { class: 'panel' });
-      up.appendChild(el('h2', null, ['Upcoming ', el('span', { class: 'sub' }, ['next ' + upcoming.length + ' fixtures'])]));
+      up.appendChild(el('h2', null, ['Upcoming ', el('span', { class: 'sub' }, ['rest of today & tomorrow'])]));
       var byDate = {};
       upcoming.forEach(function (m) { (byDate[m.date || 'Undated'] = byDate[m.date || 'Undated'] || []).push(m); });
       Object.keys(byDate).sort().forEach(function (d) {
