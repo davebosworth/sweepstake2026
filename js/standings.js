@@ -11,6 +11,8 @@
   'use strict';
 
   function isFinished(m) { return m.status === 'ft' && m.homeScore != null && m.awayScore != null; }
+  // A match whose score counts toward the live tables: finished OR in progress.
+  function isCounting(m) { return (m.status === 'ft' || m.status === 'live') && m.homeScore != null && m.awayScore != null; }
 
   // Build a fresh stat record for a team.
   function blankTeam(team) {
@@ -20,15 +22,16 @@
       group: null,
       P: 0, W: 0, D: 0, L: 0, GF: 0, GA: 0, GD: 0, Pts: 0,
       yellow: 0, red: 0, cardPoints: 0,
-      played: false
+      played: false,
+      live: false       // currently involved in an in-play match (provisional row)
     };
   }
 
   /* Returns a map team -> stat record, aggregated across all matches.
      Group membership is taken from every match a team appears in (finished or
      not) so league tables can list all four teams before kick-off. League
-     points/goals only come from finished matches; cards are counted from any
-     match that records them. */
+     points/goals come from finished AND in-play matches (the latter provisional,
+     marked with `live`); cards are counted from any match that records them. */
   function computeTeams(state) {
     var map = {};
     function ensure(team) {
@@ -47,7 +50,8 @@
         if (c.type === 'red') t.red += 1; else t.yellow += 1;
       });
 
-      if (!isFinished(m)) return;
+      if (!isCounting(m)) return;
+      if (m.status === 'live') { h.live = a.live = true; }
 
       h.played = a.played = true;
       h.P += 1; a.P += 1;
@@ -137,7 +141,8 @@
     disciplinary: disciplinary,
     worstTeams: worstTeams,
     groupTables: groupTables,
-    isFinished: isFinished
+    isFinished: isFinished,
+    isCounting: isCounting
   };
 
 })(window.WC = window.WC || {});
