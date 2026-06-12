@@ -68,20 +68,23 @@
   }
 
   function dayNumber(startDate, reportDate) {
-    var a = new Date(startDate + 'T00:00:00');
-    var b = new Date(reportDate + 'T00:00:00');
+    var a = new Date(startDate + 'T00:00:00Z');
+    var b = new Date(reportDate + 'T00:00:00Z');
     return Math.floor((b - a) / 86400000) + 1;
   }
 
+  // UTC-safe date shift. Parsing/serialising in UTC avoids the off-by-one that
+  // bites in timezones ahead of UTC (e.g. BST), where local-midnight rolls back
+  // across the date line when round-tripped through toISOString.
   function shiftDate(dateStr, days) {
-    var d = new Date(dateStr + 'T00:00:00');
-    d.setDate(d.getDate() + days);
+    var d = new Date(dateStr + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() + days);
     return d.toISOString().slice(0, 10);
   }
 
   function prettyDate(dateStr) {
-    var d = new Date(dateStr + 'T00:00:00');
-    return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    var d = new Date(dateStr + 'T00:00:00Z');
+    return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
   }
 
   /* ---- section builders ---------------------------------------------------- */
