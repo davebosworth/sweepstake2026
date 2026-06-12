@@ -47,6 +47,7 @@
     grid.appendChild(statCard('Wooden spoon', worst.length ? worst[0].team + ' · ' + worst[0].owner : '—'));
     root.appendChild(grid);
 
+    root.appendChild(prizePanel(st));
     root.appendChild(favouritesPanel());
 
     var col = el('div', { class: 'two-col' });
@@ -126,6 +127,76 @@
       tb.appendChild(tr);
     });
     t.appendChild(tb); panel.appendChild(t);
+    return panel;
+  }
+
+  /* Predict who currently wins each cash prize. Winner/runner-up come from the
+     live odds (shortest price); worst team and dirtiest team from the live ESPN
+     standings. Best Goal isn't tracked, so it's shown but not predicted. */
+  function prizePredictions(st) {
+    var oddsNote = oddsState.status === 'nokey' ? 'awaiting odds key'
+      : oddsState.status === 'loading' ? 'loading odds…'
+      : oddsState.status === 'error' ? 'odds unavailable' : 'awaiting odds';
+    var winRows = oddsState.status === 'ok'
+      ? oddsState.rows.filter(function (r) { return r.winnerOdds != null; }).sort(function (a, b) { return a.winnerOdds - b.winnerOdds; })
+      : [];
+    var ruRows = oddsState.status === 'ok'
+      ? oddsState.rows.filter(function (r) { return r.runnerUpOdds != null; }).sort(function (a, b) { return a.runnerUpOdds - b.runnerUpOdds; })
+      : [];
+
+    var winner = winRows[0] || null;
+    var runner = null, ruBasis;
+    if (ruRows.length) { runner = ruRows[0]; ruBasis = 'shortest runner-up odds'; }
+    else if (winRows.length > 1) { runner = winRows[1]; ruBasis = '2nd-favourite (no runner-up market)'; }
+
+    var worst = S.worstTeams(st)[0] || null;
+    var disc = S.disciplinary(st)[0] || null;
+
+    return [
+      { prize: 'Overall Winner', amount: 80, team: winner && winner.team, owner: winner && winner.owner, basis: winner ? 'shortest winner odds' : oddsNote },
+      { prize: 'Runner Up', amount: 20, team: runner && runner.team, owner: runner && runner.owner, basis: runner ? ruBasis : (winRows.length ? '—' : oddsNote) },
+      { prize: 'Worst Team', amount: 20, team: worst && worst.team, owner: worst && worst.owner, basis: worst ? 'bottom of wooden-spoon table' : 'no matches yet' },
+      { prize: 'Dirtiest Team', amount: 20, team: disc && disc.team, owner: disc && disc.owner, basis: disc ? 'most disciplinary points' : 'no cards yet' },
+      { prize: 'Best Goal', amount: 20, team: null, owner: null, basis: 'not tracked', excluded: true }
+    ];
+  }
+
+  // Dashboard: current predicted payout of the £160 pot.
+  function prizePanel(st) {
+    var panel = el('div', { class: 'panel' });
+    panel.appendChild(el('h2', null, ['Current Prize Prediction ',
+      el('span', { class: 'sub' }, ['£160 pot · 8 × £20 · based on live odds & tables'])]));
+
+    var preds = prizePredictions(st);
+    var t = el('table', { class: 'tbl' });
+    t.innerHTML = '<thead><tr><th>Prize</th><th>Predicted team</th><th>Player</th><th class="r">£</th></tr></thead>';
+    var tb = el('tbody');
+    preds.forEach(function (p) {
+      var tr = el('tr', { class: (p.excluded ? 'muted' : (p.amount === 80 ? 'leader' : '')) });
+      tr.innerHTML = '<td><b>' + p.prize + '</b><div class="muted small">' + p.basis + '</div></td>' +
+        '<td>' + (p.team || '<span class="muted">—</span>') + '</td>' +
+        '<td class="' + (p.owner ? 'b' : 'muted') + '">' + (p.owner || '—') + '</td>' +
+        '<td class="r b ' + (p.excluded ? 'muted' : 'gold') + '">£' + p.amount + '</td>';
+      tb.appendChild(tr);
+    });
+    t.appendChild(tb); panel.appendChild(t);
+
+    // Per-player predicted return (winnings − £20 stake).
+    var byOwner = {};
+    preds.forEach(function (p) { if (p.owner) byOwner[p.owner] = (byOwner[p.owner] || 0) + p.amount; });
+    var winners = Object.keys(byOwner).map(function (o) { return { owner: o, win: byOwner[o] }; })
+      .sort(function (a, b) { return b.win - a.win; });
+    if (winners.length) {
+      var sum = el('p', { class: 'muted small', style: 'margin:10px 2px 0' });
+      sum.appendChild(document.createTextNode('Predicted returns: '));
+      winners.forEach(function (w, i) {
+        var net = w.win - 20;
+        sum.appendChild(el('b', { class: 'gold' }, [w.owner]));
+        sum.appendChild(document.createTextNode(' £' + w.win + ' (net ' + (net >= 0 ? '+' : '−') + '£' + Math.abs(net) + ')' + (i < winners.length - 1 ? ' · ' : '')));
+      });
+      sum.appendChild(document.createTextNode('. Everyone else −£20.'));
+      panel.appendChild(sum);
+    }
     return panel;
   }
 
