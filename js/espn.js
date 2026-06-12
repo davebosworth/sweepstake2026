@@ -50,21 +50,19 @@
     return cur == null ? fallback : cur;
   }
 
-  function pad(n) { return n < 10 ? '0' + n : '' + n; }
   function compact(iso) { return iso.replace(/-/g, ''); }       // 2026-06-12 -> 20260612
 
-  // Convert an ISO timestamp to UK local date (YYYY-MM-DD) and time (HH:MM).
-  function toUK(iso) {
+  // The UK kick-off time (HH:MM) for display only. The day a match belongs to
+  // is the local match day (ESPN's scoreboard date), NOT this — the hosts are
+  // 5-8h behind the UK, so a US evening kickoff is the small hours UK time and
+  // must still count as that match day, not the next one.
+  function ukTime(iso) {
     var d = new Date(iso);
-    if (isNaN(d)) return { date: null, time: '' };
+    if (isNaN(d)) return '';
     var parts = new Intl.DateTimeFormat('en-GB', {
-      timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit',
-      hour: '2-digit', minute: '2-digit', hour12: false
+      timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', hour12: false
     }).formatToParts(d).reduce(function (a, p) { a[p.type] = p.value; return a; }, {});
-    return {
-      date: parts.year + '-' + parts.month + '-' + parts.day,
-      time: (parts.hour === '24' ? '00' : parts.hour) + ':' + parts.minute
-    };
+    return (parts.hour === '24' ? '00' : parts.hour) + ':' + parts.minute;
   }
 
   function teamName(competitor) {
@@ -76,7 +74,7 @@
   // Normalise one scoreboard event into the app's match shape (no scorers/cards
   // yet — those come from the summary). Carries _espn metadata + any unmapped
   // names so the UI can flag them.
-  function parseEvent(ev) {
+  function parseEvent(ev, matchDay) {
     var comp = get(ev, ['competitions', 0]);
     if (!comp) return null;
     var comps = comp.competitors || [];
@@ -85,7 +83,6 @@
     if (!home || !away) return null;
 
     var rawHome = teamName(home), rawAway = teamName(away);
-    var uk = toUK(ev.date);
     var state = get(comp, ['status', 'type', 'state'], 'pre'); // pre | in | post
     var completed = get(comp, ['status', 'type', 'completed'], false);
     var finished = state === 'post' && completed;
@@ -100,8 +97,8 @@
       _rawHome: rawHome,
       _rawAway: rawAway,
       _state: state,
-      date: uk.date,
-      kickoff: uk.time,
+      date: matchDay,              // local match day (ESPN's grouping), not UK date
+      kickoff: ukTime(ev.date),    // UK time, for display only
       group: group,
       home: mapTeam(rawHome),
       away: mapTeam(rawAway),
@@ -155,13 +152,12 @@
   }
 
   /* ---- tiny session cache -------------------------------------------------
-     Keeps repeat loads light without persisting real state: finished-match
-     summaries (scorers/cards) and past days' scoreboards never change, so they
-     are reused for the browser-tab session; today's scoreboard re-checks after
-     a short TTL so live scores stay fresh. Cleared when the tab closes. */
+     Only ever caches data that can't change again: a day is cached once all
+     its matches have ENDED (or the date is already in the past), and a match
+     summary (scorers/cards) is only fetched/cached for finished matches.
+     In-play and upcoming days are always re-fetched so live scores stay fresh.
+     Lives in sessionStorage and clears when the tab closes. */
   var CACHE_KEY = 'wc26-cache-v1';
-  var TTL_LIVE = 60 * 1000;             // today / future days
-  var TTL_FINAL = 12 * 60 * 60 * 1000;  // past days & finished summaries
   var mem = { scoreboard: {}, summary: {} };
   var ss = (function () { try { return (typeof sessionStorage !== 'undefined') ? sessionStorage : null; } catch (e) { return null; } })();
 
@@ -180,6 +176,13 @@
   function todayUTC() { return new Date().toISOString().slice(0, 10); }
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
 
+  // A day is safe to cache only when nothing on it can still change: it's a
+  // past date, or every match returned has finished.
+  function isSettled(dateISO, matches) {
+    if (dateISO < todayUTC()) return true;
+    return matches.length > 0 && matches.every(function (m) { return m.status === 'ft'; });
+  }
+
   /* ---- network ------------------------------------------------------------ */
   function fetchJSON(url) {
     return fetch(url, { headers: { 'Accept': 'application/json' } }).then(function (r) {
@@ -189,13 +192,11 @@
   }
 
   function fetchScoreboard(dateISO) {
-    var ttl = dateISO < todayUTC() ? TTL_FINAL : TTL_LIVE;
     var c = mem.scoreboard[dateISO];
-    if (c && (Date.now() - c.ts) < ttl) return Promise.resolve(c.matches.map(clone));
+    if (c) return Promise.resolve(c.matches.map(clone)); // only stored once settled
     return fetchJSON(BASE + '/scoreboard?dates=' + compact(dateISO)).then(function (data) {
-      var matches = (data.events || []).map(parseEvent).filter(Boolean);
-      mem.scoreboard[dateISO] = { ts: Date.now(), matches: matches };
-      persist();
+      var matches = (data.events || []).map(function (ev) { return parseEvent(ev, dateISO); }).filter(Boolean);
+      if (isSettled(dateISO, matches)) { mem.scoreboard[dateISO] = { matches: matches }; persist(); }
       return matches.map(clone);
     });
   }
@@ -209,8 +210,8 @@
         var d = parseSummary(s);
         match.scorers = d.scorers;
         match.cards = d.cards;
-        mem.summary[match._espnId] = { scorers: d.scorers, cards: d.cards };
-        persist();
+        // Only a finished match's details are final; never cache in-play data.
+        if (match.status === 'ft') { mem.summary[match._espnId] = { scorers: d.scorers, cards: d.cards }; persist(); }
         return match;
       })
       .catch(function () { return match; }); // detail is best-effort
