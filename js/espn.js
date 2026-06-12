@@ -50,21 +50,19 @@
     return cur == null ? fallback : cur;
   }
 
-  function pad(n) { return n < 10 ? '0' + n : '' + n; }
   function compact(iso) { return iso.replace(/-/g, ''); }       // 2026-06-12 -> 20260612
 
-  // Convert an ISO timestamp to UK local date (YYYY-MM-DD) and time (HH:MM).
-  function toUK(iso) {
+  // The UK kick-off time (HH:MM) for display only. The day a match belongs to
+  // is the local match day (ESPN's scoreboard date), NOT this — the hosts are
+  // 5-8h behind the UK, so a US evening kickoff is the small hours UK time and
+  // must still count as that match day, not the next one.
+  function ukTime(iso) {
     var d = new Date(iso);
-    if (isNaN(d)) return { date: null, time: '' };
+    if (isNaN(d)) return '';
     var parts = new Intl.DateTimeFormat('en-GB', {
-      timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit',
-      hour: '2-digit', minute: '2-digit', hour12: false
+      timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', hour12: false
     }).formatToParts(d).reduce(function (a, p) { a[p.type] = p.value; return a; }, {});
-    return {
-      date: parts.year + '-' + parts.month + '-' + parts.day,
-      time: (parts.hour === '24' ? '00' : parts.hour) + ':' + parts.minute
-    };
+    return (parts.hour === '24' ? '00' : parts.hour) + ':' + parts.minute;
   }
 
   function teamName(competitor) {
@@ -76,7 +74,7 @@
   // Normalise one scoreboard event into the app's match shape (no scorers/cards
   // yet — those come from the summary). Carries _espn metadata + any unmapped
   // names so the UI can flag them.
-  function parseEvent(ev) {
+  function parseEvent(ev, matchDay) {
     var comp = get(ev, ['competitions', 0]);
     if (!comp) return null;
     var comps = comp.competitors || [];
@@ -85,7 +83,6 @@
     if (!home || !away) return null;
 
     var rawHome = teamName(home), rawAway = teamName(away);
-    var uk = toUK(ev.date);
     var state = get(comp, ['status', 'type', 'state'], 'pre'); // pre | in | post
     var completed = get(comp, ['status', 'type', 'completed'], false);
     var finished = state === 'post' && completed;
@@ -100,8 +97,8 @@
       _rawHome: rawHome,
       _rawAway: rawAway,
       _state: state,
-      date: uk.date,
-      kickoff: uk.time,
+      date: matchDay,              // local match day (ESPN's grouping), not UK date
+      kickoff: ukTime(ev.date),    // UK time, for display only
       group: group,
       home: mapTeam(rawHome),
       away: mapTeam(rawAway),
@@ -198,7 +195,7 @@
     var c = mem.scoreboard[dateISO];
     if (c) return Promise.resolve(c.matches.map(clone)); // only stored once settled
     return fetchJSON(BASE + '/scoreboard?dates=' + compact(dateISO)).then(function (data) {
-      var matches = (data.events || []).map(parseEvent).filter(Boolean);
+      var matches = (data.events || []).map(function (ev) { return parseEvent(ev, dateISO); }).filter(Boolean);
       if (isSettled(dateISO, matches)) { mem.scoreboard[dateISO] = { matches: matches }; persist(); }
       return matches.map(clone);
     });
