@@ -47,6 +47,8 @@
     grid.appendChild(statCard('Wooden spoon', worst.length ? worst[0].team + ' · ' + worst[0].owner : '—'));
     root.appendChild(grid);
 
+    root.appendChild(favouritesPanel());
+
     var col = el('div', { class: 'two-col' });
 
     var dWrap = el('div', { class: 'panel' });
@@ -93,6 +95,38 @@
       el('div', { class: 'stat-v' }, [String(value)]),
       el('div', { class: 'stat-l' }, [label])
     ]);
+  }
+
+  function fmtOdds(d) { return d == null ? '—' : d.toFixed(2); }
+  function fmtPct(p) { return p == null ? '—' : (p * 100).toFixed(1) + '%'; }
+
+  // Dashboard: the five shortest-priced teams to win, with owner + odds.
+  function favouritesPanel() {
+    var panel = el('div', { class: 'panel' });
+    panel.appendChild(el('h2', null, ['Sweepstake Favourites ', el('span', { class: 'sub' }, ['top 5 to win the World Cup'])]));
+
+    if (oddsState.status === 'nokey') {
+      panel.appendChild(el('p', { class: 'empty' }, ['Add a betting-odds API key on the ', el('b', null, ['Winner Odds']), ' tab to see live favourites.']));
+      return panel;
+    }
+    if (oddsState.status === 'loading') { panel.appendChild(el('p', { class: 'empty' }, ['Loading odds…'])); return panel; }
+    if (oddsState.status === 'error') { panel.appendChild(el('p', { class: 'empty red' }, ['Odds unavailable — ' + oddsState.error])); return panel; }
+
+    var top = oddsState.rows.filter(function (r) { return r.winnerOdds != null; })
+      .sort(function (a, b) { return a.winnerOdds - b.winnerOdds; }).slice(0, 5);
+    if (!top.length) { panel.appendChild(el('p', { class: 'empty' }, ['No odds returned.'])); return panel; }
+
+    var t = el('table', { class: 'tbl' });
+    t.innerHTML = '<thead><tr><th>#</th><th>Team</th><th>Owner</th><th class="r">Win %</th><th class="r">Odds</th></tr></thead>';
+    var tb = el('tbody');
+    top.forEach(function (r, i) {
+      var tr = el('tr', i === 0 ? { class: 'leader' } : null);
+      tr.innerHTML = '<td>' + (i + 1) + (i === 0 ? ' ★' : '') + '</td><td>' + r.team + '</td><td class="muted">' + r.owner +
+        '</td><td class="r b gold">' + fmtPct(r.winnerProb) + '</td><td class="r">' + fmtOdds(r.winnerOdds) + '</td>';
+      tb.appendChild(tr);
+    });
+    t.appendChild(tb); panel.appendChild(t);
+    return panel;
   }
 
   /* ---- TAB: Fixtures & Results (read-only) -------------------------------- */
@@ -285,6 +319,85 @@
 
   function loadingBlock(msg) { return el('div', { class: 'loading' }, [el('div', { class: 'spinner' }), el('span', null, [msg])]); }
 
+  /* ---- Odds (The Odds API) ------------------------------------------------ */
+  var oddsState = { status: 'idle', rows: [], error: null, updatedAt: null };
+
+  function loadOdds() {
+    var cfg = WC.Odds.getConfig();
+    if (!cfg.apiKey) { oddsState.status = 'nokey'; render(); return; }
+    oddsState.status = 'loading'; render();
+    WC.Odds.fetchAll().then(function (res) {
+      oddsState.rows = res.rows; oddsState.updatedAt = res.updatedAt; oddsState.status = 'ok'; render();
+    }).catch(function (e) {
+      oddsState.status = 'error'; oddsState.error = (e && e.message) ? e.message : 'request failed'; render();
+    });
+  }
+
+  function renderOdds() {
+    var cfg = WC.Odds.getConfig();
+    var root = el('div');
+
+    // --- settings ---
+    var draft = { apiKey: cfg.apiKey, region: cfg.region, winnerKey: cfg.winnerKey, runnerUpKey: cfg.runnerUpKey };
+    var keyInput = el('input', { type: 'password', value: cfg.apiKey, placeholder: 'paste your the-odds-api.com key' });
+    keyInput.addEventListener('input', function () { draft.apiKey = keyInput.value.trim(); });
+    var regionSel = el('select', { html: ['uk', 'eu', 'us', 'au'].map(function (r) { return '<option value="' + r + '"' + (r === cfg.region ? ' selected' : '') + '>' + r.toUpperCase() + '</option>'; }).join('') });
+    regionSel.addEventListener('change', function () { draft.region = regionSel.value; });
+
+    var settings = el('div', { class: 'panel' }, [
+      el('h2', null, ['Odds settings']),
+      el('p', { class: 'muted small' }, ['Free key from ', el('b', null, ['the-odds-api.com']), '. Stored only in this browser — never committed to the site.']),
+      el('div', { class: 'odds-cfg' }, [
+        field('API key', keyInput),
+        field('Region', regionSel),
+        field('Winner market key', textInput(cfg.winnerKey, 'soccer_fifa_world_cup_winner', function (v) { draft.winnerKey = v.trim(); })),
+        field('Runner-up market key (optional)', textInput(cfg.runnerUpKey, 'leave blank if unknown', function (v) { draft.runnerUpKey = v.trim(); }))
+      ]),
+      el('div', { class: 'report-btns', style: 'flex-direction:row;flex-wrap:wrap' }, [
+        el('button', { class: 'btn primary', onclick: function () { WC.Odds.setConfig(draft); loadOdds(); } }, ['Save & load odds']),
+        el('button', { class: 'btn', onclick: loadOdds }, ['↻ Refresh'])
+      ])
+    ]);
+    root.appendChild(settings);
+
+    // --- status / table ---
+    if (oddsState.status === 'nokey' || (oddsState.status === 'idle' && !cfg.apiKey)) {
+      root.appendChild(el('p', { class: 'empty big' }, ['Enter an API key above to load tournament-winner odds for all 48 teams.']));
+      return root;
+    }
+    if (oddsState.status === 'loading') { root.appendChild(loadingBlock('Loading odds…')); return root; }
+    if (oddsState.status === 'error') {
+      root.appendChild(el('p', { class: 'empty big red' }, ['Could not load odds — ' + oddsState.error]));
+      root.appendChild(el('p', { class: 'muted small', style: 'text-align:center' }, ['If this is a CORS error, the browser is blocked from calling the API directly and a small proxy is needed.']));
+      return root;
+    }
+    if (oddsState.status !== 'ok') { root.appendChild(el('p', { class: 'empty big' }, ['Click “Save & load odds”.'])); return root; }
+
+    var rows = oddsState.rows.slice().sort(function (a, b) {
+      if (a.winnerOdds == null && b.winnerOdds == null) return a.team.localeCompare(b.team);
+      if (a.winnerOdds == null) return 1;
+      if (b.winnerOdds == null) return -1;
+      return a.winnerOdds - b.winnerOdds;
+    });
+
+    var panel = el('div', { class: 'panel' });
+    panel.appendChild(el('h2', null, ['All Teams · Outright Odds ',
+      el('span', { class: 'sub' }, [oddsState.updatedAt ? 'updated ' + oddsState.updatedAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : ''])]));
+    var t = el('table', { class: 'tbl' });
+    t.innerHTML = '<thead><tr><th>#</th><th>Team</th><th>Owner</th><th class="r">Win %</th><th class="r">Winner</th><th class="r">Runner-up</th></tr></thead>';
+    var tb = el('tbody');
+    rows.forEach(function (r, i) {
+      var tr = el('tr');
+      tr.innerHTML = '<td>' + (i + 1) + '</td><td>' + r.team + '</td><td class="muted">' + r.owner +
+        '</td><td class="r b gold">' + fmtPct(r.winnerProb) + '</td><td class="r">' + fmtOdds(r.winnerOdds) +
+        '</td><td class="r muted">' + fmtOdds(r.runnerUpOdds) + '</td>';
+      tb.appendChild(tr);
+    });
+    t.appendChild(tb); panel.appendChild(t);
+    root.appendChild(panel);
+    return root;
+  }
+
   /* ---- header status ------------------------------------------------------ */
   function renderStatus() {
     var st = Live.get();
@@ -304,6 +417,7 @@
     ['dashboard', 'Dashboard', renderDashboard],
     ['fixtures', 'Fixtures & Results', renderFixtures],
     ['standings', 'Standings', renderStandings],
+    ['odds', 'Winner Odds', renderOdds],
     ['report', 'Morning Report', renderReport],
     ['allocations', 'Allocations', renderAllocations]
   ];
@@ -324,6 +438,7 @@
     Live.onChange(function () { render(); });
     render();
     Live.load();
+    loadOdds(); // fetch odds if a key is already configured (else flags 'nokey')
   }
 
   document.addEventListener('DOMContentLoaded', init);

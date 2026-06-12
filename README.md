@@ -64,6 +64,22 @@ States → USA, and so on).
 | **Morning Report** | Live preview + **Export PNG** (1080px portrait) |
 | **Allocations** | The fixed player → team reference |
 
+## Winner Odds
+
+The **Winner Odds** tab shows live tournament-winner odds for all 48 teams (with
+their owner), and the dashboard surfaces the **top 5 favourites**. Odds come
+from [The Odds API](https://the-odds-api.com), averaged across bookmakers and
+converted to a normalised win-probability so the favourites update as teams go
+out.
+
+- It needs a free API key — paste it on the Winner Odds tab. The key is kept in
+  `localStorage` (this browser only) and is **never committed**, so it's safe on
+  a public Pages site.
+- The winner market key defaults to `soccer_fifa_world_cup_winner`; the
+  runner-up market key is configurable (left blank by default).
+- The API is called directly from the browser. If your network blocks it
+  (CORS), the tab shows a clear error — a small proxy would be the workaround.
+
 ## The Morning Report
 
 The graphic is hand-built as an SVG (matching the spec's design system —
