@@ -23,7 +23,8 @@
       P: 0, W: 0, D: 0, L: 0, GF: 0, GA: 0, GD: 0, Pts: 0,
       yellow: 0, red: 0, cardPoints: 0,
       played: false,
-      live: false       // currently involved in an in-play match (provisional row)
+      live: false,        // currently involved in an in-play match (provisional row)
+      liveWinning: false  // ...and currently ahead in that match
     };
   }
 
@@ -51,7 +52,11 @@
       });
 
       if (!isCounting(m)) return;
-      if (m.status === 'live') { h.live = a.live = true; }
+      if (m.status === 'live') {
+        h.live = a.live = true;
+        if (m.homeScore > m.awayScore) h.liveWinning = true;
+        else if (m.awayScore > m.homeScore) a.liveWinning = true;
+      }
 
       h.played = a.played = true;
       h.P += 1; a.P += 1;
@@ -96,7 +101,11 @@
       .filter(function (t) { return t.played; });
 
     if (state.earlyFilter) {
-      rows = rows.filter(function (t) { return t.Pts === 0 && t.GD < 0; });
+      // Keep the early-tournament filter (winless, negative GD), but also
+      // include teams in a live match that aren't currently winning, so the
+      // wooden-spoon race updates as games play out without listing a team
+      // that's live and ahead.
+      rows = rows.filter(function (t) { return (t.live && !t.liveWinning) || (t.Pts === 0 && t.GD < 0); });
     }
 
     // Worst first: fewest points, then lowest GD, then most goals conceded,
