@@ -25,8 +25,20 @@
     };
   }
 
+  // Non-empty values committed in config.js (window.WC_CONFIG). These are the
+  // shared source of truth and win over a visitor's own saved settings, so the
+  // person running the deployment can set/rotate the key for everyone at once.
+  function sharedConfig() {
+    var src = (typeof window !== 'undefined' && window.WC_CONFIG) ? window.WC_CONFIG : {};
+    var out = {};
+    Object.keys(src).forEach(function (k) { if (src[k] !== '' && src[k] != null) out[k] = src[k]; });
+    return out;
+  }
+
+  // Precedence: hard defaults < this browser's saved settings < shared config.
   var cfg = defaults();
-  try { var raw = localStorage.getItem(CFG_KEY); if (raw) cfg = Object.assign(defaults(), JSON.parse(raw)); } catch (e) {}
+  try { var raw = localStorage.getItem(CFG_KEY); if (raw) Object.assign(cfg, JSON.parse(raw)); } catch (e) {}
+  Object.assign(cfg, sharedConfig());
 
   function getConfig() { return cfg; }
   function setConfig(patch) {

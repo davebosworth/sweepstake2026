@@ -366,6 +366,7 @@
 
   function renderOdds() {
     var cfg = WC.Odds.getConfig();
+    var oddsSharedKey = !!(window.WC_CONFIG && window.WC_CONFIG.apiKey);
     var root = el('div');
 
     // --- settings ---
@@ -377,7 +378,9 @@
 
     var settings = el('div', { class: 'panel' }, [
       el('h2', null, ['Odds settings']),
-      el('p', { class: 'muted small' }, ['Free key from ', el('b', null, ['the-odds-api.com']), '. Stored only in this browser — never committed to the site.']),
+      el('p', { class: 'muted small' }, [oddsSharedKey
+        ? 'Using the shared key from config.js. Anything you type here applies to this browser only and is overridden by the shared config on reload.'
+        : ['Free key from ', el('b', null, ['the-odds-api.com']), '. Stored only in this browser. To share with friends, commit it in ', el('code', null, ['js/config.js']), ' instead.']]),
       el('div', { class: 'odds-cfg' }, [
         field('API key', keyInput),
         field('Region', regionSel),
