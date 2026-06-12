@@ -227,10 +227,7 @@
       var avg = odds.length ? odds.reduce(function (s, x) { return s + x; }, 0) / odds.length : null;
       return { name: p.name, teams: teams, avgOdds: avg, winPct: probSum, priced: odds.length, best: best };
     }).sort(function (a, b) {
-      if (a.avgOdds == null && b.avgOdds == null) return 0;
-      if (a.avgOdds == null) return 1;
-      if (b.avgOdds == null) return -1;
-      return a.avgOdds - b.avgOdds;
+      return b.winPct - a.winPct; // highest combined win % = strongest allocation
     });
   }
 
@@ -238,7 +235,7 @@
     var root = el('div');
     var panel = el('div', { class: 'panel' });
     panel.appendChild(el('h2', null, ['Allocation Quality ',
-      el('span', { class: 'sub' }, ['ranked by average winner odds of each player’s six teams'])]));
+      el('span', { class: 'sub' }, ['ranked by combined chance one of each player’s six teams wins'])]));
 
     if (oddsState.status === 'nokey') {
       panel.appendChild(el('p', { class: 'empty' }, ['Add a betting-odds API key on the ', el('b', null, ['Winner Odds']), ' tab to rank allocations.']));
@@ -249,18 +246,18 @@
 
     var stats = playerStats();
     var t = el('table', { class: 'tbl' });
-    t.innerHTML = '<thead><tr><th>#</th><th>Player</th><th class="r">Avg odds</th><th class="r">Combined win %</th><th>Strongest team</th></tr></thead>';
+    t.innerHTML = '<thead><tr><th>#</th><th>Player</th><th class="r">Combined win %</th><th class="r">Avg odds</th><th>Strongest team</th></tr></thead>';
     var tb = el('tbody');
     stats.forEach(function (s, i) {
       var tr = el('tr', i === 0 ? { class: 'leader' } : null);
       var strong = s.best ? s.best.team + ' (' + fmtOdds(s.best.odds) + ')' : '—';
       tr.innerHTML = '<td>' + (i + 1) + (i === 0 ? ' ★' : '') + '</td><td class="b">' + s.name +
-        '</td><td class="r b gold">' + fmtOdds(s.avgOdds) + '</td><td class="r">' + fmtPct(s.winPct) +
+        '</td><td class="r b gold">' + fmtPct(s.winPct) + '</td><td class="r">' + fmtOdds(s.avgOdds) +
         '</td><td>' + strong + '</td>';
       tb.appendChild(tr);
     });
     t.appendChild(tb); panel.appendChild(t);
-    panel.appendChild(el('p', { class: 'muted small', style: 'margin:10px 2px 0' }, ['Lower average odds = a stronger set of teams. Combined win % is the chance that one of a player’s six teams wins the tournament.']));
+    panel.appendChild(el('p', { class: 'muted small', style: 'margin:10px 2px 0' }, ['Combined win % is the chance that one of a player’s six teams wins the tournament — higher is a stronger allocation. Avg odds is the average winner price across their six teams.']));
     root.appendChild(panel);
 
     // Per-player breakdown of the six teams, shortest price first.
