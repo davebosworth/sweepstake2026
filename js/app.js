@@ -173,7 +173,7 @@
     var tb = el('tbody');
     preds.forEach(function (p) {
       var tr = el('tr', { class: (p.excluded ? 'muted' : (p.amount === 80 ? 'leader' : '')) });
-      tr.innerHTML = '<td><b>' + p.prize + '</b><div class="muted small">' + p.basis + '</div></td>' +
+      tr.innerHTML = '<td><b>' + p.prize + '</b></td>' +
         '<td>' + (p.team || '<span class="muted">—</span>') + '</td>' +
         '<td class="' + (p.owner ? 'b' : 'muted') + '">' + (p.owner || '—') + '</td>' +
         '<td class="r b ' + (p.excluded ? 'muted' : 'gold') + '">£' + p.amount + '</td>';
