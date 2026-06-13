@@ -432,6 +432,11 @@
 
     var matchEl = el('div', { class: 'match ' + (fin ? 'is-ft' : (live ? 'is-live' : 'is-sched')) }, [head]);
 
+    // Pre-match win-probability predictor on upcoming games (if ESPN provides it).
+    if (!fin && !live && m.predictor && (m.predictor.home != null || m.predictor.away != null)) {
+      matchEl.appendChild(predictorBar(m));
+    }
+
     // Finished and in-play matches expand to show goalscorers and cards.
     if (fin || live) {
       matchEl.classList.add('expandable');
@@ -442,13 +447,31 @@
     return matchEl;
   }
 
+  // Pre-match win-probability bar (home / draw / away) shown on scheduled cards.
+  function predictorBar(m) {
+    var p = m.predictor;
+    function pct(v) { return v == null ? 0 : Math.max(0, Math.min(100, v)); }
+    var h = pct(p.home), d = pct(p.draw), a = pct(p.away);
+    var bar = el('div', { class: 'pred-bar' }, [
+      el('span', { class: 'pred-h', style: 'width:' + h + '%' }),
+      el('span', { class: 'pred-d', style: 'width:' + d + '%' }),
+      el('span', { class: 'pred-a', style: 'width:' + a + '%' })
+    ]);
+    var label = el('div', { class: 'pred-label muted small' }, [
+      (m.home || 'Home') + ' ' + Math.round(h) + '%  ·  Draw ' + Math.round(d) + '%  ·  ' + Math.round(a) + '% ' + (m.away || 'Away')
+    ]);
+    return el('div', { class: 'pred-wrap' }, [el('div', { class: 'pred-cap' }, ['Predicted win probability']), bar, label]);
+  }
+
   function teamDetail(side, m) {
     var team = side === 'home' ? m.home : m.away;
+    var xg = m.xg ? m.xg[side] : null;
     var scorers = (m.scorers || []).filter(function (s) { return s.team === side; });
     var cards = (m.cards || []).filter(function (c) { return c.team === side; });
 
     var col = el('div', { class: 'td-col' }, [
-      el('div', { class: 'td-team' }, [team || '?', el('span', { class: 'muted' }, [' · ' + WC.ownerOf(team)])])
+      el('div', { class: 'td-team' }, [team || '?', el('span', { class: 'muted' }, [' · ' + WC.ownerOf(team)]),
+        (xg != null ? el('span', { class: 'td-xg' }, ['xG ' + xg.toFixed(2)]) : null)])
     ]);
 
     var goals = el('div', { class: 'td-block' }, [el('div', { class: 'td-label' }, ['Goals'])]);

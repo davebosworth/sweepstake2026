@@ -66,8 +66,15 @@
       collected.forEach(function (m) { if (!seen[m._espnId]) { seen[m._espnId] = 1; uniq.push(m); } });
 
       var finished = uniq.filter(function (m) { return m.status === 'ft'; });
-      // Goalscorers + cards are fetched for finished AND in-play matches.
-      var detailed = uniq.filter(function (m) { return m.status === 'ft' || m.status === 'live'; });
+      // Details (scorers/cards/xg) for finished + in-play matches, plus the
+      // pre-match predictor for scheduled games in the near window (today/
+      // tomorrow) — without fetching all 104 fixtures' summaries.
+      var nToday = WC.ESPN.localDay(new Date());
+      var nTomorrow = WC.ESPN.localDay(new Date(Date.now() + 86400000));
+      var detailed = uniq.filter(function (m) {
+        return m.status === 'ft' || m.status === 'live' ||
+          (m.status === 'scheduled' && (m.date === nToday || m.date === nTomorrow));
+      });
       state.matches = uniq;
       state.unmapped = dropped;
       state.loading = false;
@@ -136,7 +143,17 @@
       var idx = {};
       state.matches.forEach(function (m, i) { idx[m._espnId] = i; });
       updated.forEach(function (m) {
-        if (idx[m._espnId] != null) state.matches[idx[m._espnId]] = m; else { idx[m._espnId] = state.matches.length; state.matches.push(m); }
+        var i = idx[m._espnId];
+        if (i != null) {
+          // Carry over already-fetched detail the fresh scoreboard object lacks,
+          // so a poll doesn't wipe scorers/cards/xg/predictor between detail fetches.
+          var old = state.matches[i];
+          if ((!m.scorers || !m.scorers.length) && old.scorers && old.scorers.length) m.scorers = old.scorers;
+          if ((!m.cards || !m.cards.length) && old.cards && old.cards.length) m.cards = old.cards;
+          if (m.predictor == null && old.predictor) m.predictor = old.predictor;
+          if (m.xg == null && old.xg) m.xg = old.xg;
+          state.matches[i] = m;
+        } else { idx[m._espnId] = state.matches.length; state.matches.push(m); }
       });
       state.updatedAt = new Date(); emit();
       // Refresh scorers/cards for live + just-finished games in the window.
