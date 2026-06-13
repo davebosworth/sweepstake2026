@@ -40,87 +40,6 @@
   }
 
   /* ---- TAB: Dashboard ----------------------------------------------------- */
-  // TEMP DEBUG — dumps the raw ESPN summary fields (predictor / boxscore stats)
-  // for one finished and one scheduled match so we can confirm xG/predictor
-  // field names from a phone (screenshot it). Remove once verified.
-  function debugEspnPanel(st) {
-    var panel = el('div', { class: 'panel', style: 'border-color:var(--gold)' });
-    var copyBtn = el('button', { class: 'btn', type: 'button', style: 'float:right;font-size:12px;padding:4px 10px' }, ['Copy to clipboard']);
-    panel.appendChild(el('h2', null, ['ESPN DEBUG (temporary)', copyBtn]));
-    var pre = el('textarea', {
-      readonly: 'readonly', spellcheck: 'false',
-      style: 'display:block;width:100%;box-sizing:border-box;height:60vh;resize:vertical;' +
-        'font:11px/1.5 ui-monospace,Menlo,Consolas,monospace;color:#cfe;background:#041a13;' +
-        'border:1px solid var(--border);border-radius:8px;padding:10px;white-space:pre;overflow:auto'
-    });
-    pre.value = 'loading ESPN summaries…';
-    copyBtn.addEventListener('click', function () {
-      pre.focus(); pre.select();
-      var done = function () { copyBtn.textContent = 'Copied!'; setTimeout(function () { copyBtn.textContent = 'Copy to clipboard'; }, 1200); };
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(pre.value).then(done, function () { try { document.execCommand('copy'); done(); } catch (e) {} });
-      } else { try { document.execCommand('copy'); done(); } catch (e) {} }
-    });
-    panel.appendChild(pre);
-    var fin = st.matches.filter(function (m) { return m.status === 'ft' || m.status === 'live'; })[0];
-    var sched = st.matches.filter(function (m) { return m.status === 'scheduled'; })[0];
-    // Probe ESPN's deeper "core" API (different host) for an expected-goals
-    // stat, since the free summary feed doesn't carry it. Follows each
-    // competitor's statistics $ref and reports any xG-looking stat (and, if
-    // none, lists the stat names available so we can spot an alias).
-    function probeCoreXG(ev, ids) {
-      var CORE = 'https://sports.core.api.espn.com/v2/sports/soccer/leagues/fifa.world/events/' +
-        ev + '/competitions/' + ev + '/competitors/';
-      function scan(j) {
-        var names = [], xg = [];
-        (((j.splits || {}).categories) || []).forEach(function (cat) {
-          (cat.stats || []).forEach(function (s) {
-            names.push(s.name || s.abbreviation);
-            var tg = ((s.name || '') + ' ' + (s.abbreviation || '') + ' ' + (s.displayName || '')).toLowerCase();
-            if (/expected goals|expectedgoals|\bxg\b/.test(tg)) xg.push((s.name || s.abbreviation) + '=' + (s.displayValue != null ? s.displayValue : s.value));
-          });
-        });
-        return { names: names, xg: xg };
-      }
-      return Promise.all(ids.map(function (id) {
-        return fetch(CORE + id).then(function (r) { if (!r.ok) throw new Error('competitor HTTP ' + r.status); return r.json(); })
-          .then(function (comp) {
-            var ref = comp.statistics && comp.statistics.$ref;
-            if (!ref) return 'core[' + id + ']: no statistics.$ref (keys: ' + Object.keys(comp).join(',') + ')';
-            return fetch(ref.replace(/^http:/, 'https:')).then(function (r) { if (!r.ok) throw new Error('stats HTTP ' + r.status); return r.json(); })
-              .then(function (j) { var res = scan(j); return 'core[' + id + ']: ' + (res.xg.length ? ('XG FOUND -> ' + res.xg.join(', ')) : ('no xG; ' + res.names.length + ' stats: ' + res.names.join(','))); });
-          })['catch'](function (e) { return 'core[' + id + '] ERROR: ' + e.message; });
-      })).then(function (lines) { return 'CORE API xG probe (sports.core.api.espn.com):\n  ' + lines.join('\n  '); });
-    }
-
-    function dump(tag, m) {
-      if (!m) return Promise.resolve(tag + ': (no match)\n');
-      var ev = m._espnId;
-      return fetch(WC.ESPN.BASE + '/summary?event=' + ev)
-        .then(function (r) { return r.json(); })
-        .then(function (s) {
-          var out = '=== ' + tag + ': ' + m.home + ' v ' + m.away + ' (' + ev + ') ===\n';
-          out += 'top keys: ' + Object.keys(s).join(', ') + '\n';
-          out += 'predictor: ' + JSON.stringify(s.predictor) + '\n';
-          out += 'hasOdds: ' + JSON.stringify(s.hasOdds) + '\n';
-          var pc = s.pickcenter || [];
-          out += 'pickcenter: ' + pc.length + ' entr(ies); first =\n' + JSON.stringify(pc[0], null, 1) + '\n';
-          out += 'odds: ' + JSON.stringify(Array.isArray(s.odds) ? s.odds[0] : s.odds, null, 1) + '\n';
-          var bt = (s.boxscore && s.boxscore.teams) || [];
-          out += 'boxscore.teams: ' + bt.length + '\n';
-          bt.forEach(function (t, i) {
-            out += 'team' + i + ' stats: ' + ((t.statistics || []).map(function (x) { return x.name + '/' + (x.abbreviation || '') + '=' + x.displayValue; }).join(' | ')) + '\n';
-          });
-          var comps = ((s.header && s.header.competitions) || [])[0];
-          var ids = (((comps && comps.competitors) || []).map(function (c) { return c && (c.id || (c.team && c.team.id)); })).filter(Boolean);
-          return probeCoreXG(ev, ids).then(function (rep) { return out + rep + '\n'; });
-        })['catch'](function (e) { return tag + ' ERROR: ' + e.message + '\n'; });
-    }
-    Promise.all([dump('FINISHED/LIVE', fin), dump('SCHEDULED', sched)])
-      .then(function (parts) { pre.value = parts.join('\n'); });
-    return panel;
-  }
-
   function renderDashboard() {
     var st = Live.get();
     var disc = S.disciplinary(st);
@@ -131,7 +50,6 @@
 
 
     var root = el('div');
-    root.appendChild(debugEspnPanel(st));   // TEMP DEBUG — remove after verifying ESPN fields
 
     var liveNow = st.matches.filter(function (m) { return m.status === 'live'; }).sort(byKickoff);
     if (liveNow.length) {
@@ -618,13 +536,11 @@
 
   function teamDetail(side, m) {
     var team = side === 'home' ? m.home : m.away;
-    var xg = m.xg ? m.xg[side] : null;
     var scorers = (m.scorers || []).filter(function (s) { return s.team === side; });
     var cards = (m.cards || []).filter(function (c) { return c.team === side; });
 
     var col = el('div', { class: 'td-col' }, [
-      el('div', { class: 'td-team' }, [team || '?', el('span', { class: 'muted' }, [' · ' + WC.ownerOf(team)]),
-        (xg != null ? el('span', { class: 'td-xg' }, ['xG ' + xg.toFixed(2)]) : null)])
+      el('div', { class: 'td-team' }, [team || '?', el('span', { class: 'muted' }, [' · ' + WC.ownerOf(team)])])
     ]);
 
     var goals = el('div', { class: 'td-block' }, [el('div', { class: 'td-label' }, ['Goals'])]);

@@ -174,9 +174,6 @@ body {
 .pred-a { background: var(--gold); }
 .pred-label { margin-top: 5px; }
 
-/* per-team xG chip in the expandable match detail */
-.td-xg { margin-left: 8px; font-size: 11px; color: var(--gold); background: var(--card-2); border: 1px solid var(--border); border-radius: 5px; padding: 1px 6px; }
-
 /* expandable detail (scorers + cards per team) */
 .match-details { display: none; grid-template-columns: 1fr 1fr; gap: 18px; padding: 4px 16px 16px; border-top: 1px solid rgba(29,87,66,0.5); }
 .match.open .match-details { display: grid; padding-top: 14px; }

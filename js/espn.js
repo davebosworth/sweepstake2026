@@ -174,7 +174,7 @@
         cards.push({ team: side, player: who || 'Unknown', type: 'yellow' });
       }
     });
-    return { scorers: scorers, cards: cards, predictor: parsePredictor(summary), xg: parseXG(summary, sideById) };
+    return { scorers: scorers, cards: cards, predictor: parsePredictor(summary) };
   }
 
   // Win-probability predictor (home/draw/away %). ESPN's World Cup summary has
@@ -218,65 +218,6 @@
     return n > 0 ? 100 / (n + 100) : (-n) / (-n + 100);
   }
 
-  // Does a stat-like object's name/label/abbreviation look like xG?
-  function looksLikeXG(s) {
-    var tag = ((s.name || '') + ' ' + (s.abbreviation || '') + ' ' +
-               (s.label || '') + ' ' + (s.displayName || '') + ' ' +
-               (s.shortDisplayName || '')).toLowerCase();
-    return tag !== '    ' && /expected goals|expectedgoals|\bxg\b/.test(tag);
-  }
-
-  // Find an xG value anywhere inside a team-scoped subtree, regardless of how
-  // ESPN nests it (flat statistics[], grouped statistics[].stats[], etc.).
-  function findXG(node, depth) {
-    if (node == null || depth > 6) return null;
-    if (Array.isArray(node)) {
-      for (var i = 0; i < node.length; i++) {
-        var r = findXG(node[i], depth + 1);
-        if (r != null) return r;
-      }
-      return null;
-    }
-    if (typeof node !== 'object') return null;
-    if (looksLikeXG(node)) {
-      var v = parseFloat(node.displayValue != null ? node.displayValue : node.value);
-      if (!isNaN(v)) return v;
-    }
-    for (var k in node) {
-      if (!Object.prototype.hasOwnProperty.call(node, k)) continue;
-      if (node[k] && typeof node[k] === 'object') {
-        var rr = findXG(node[k], depth + 1);
-        if (rr != null) return rr;
-      }
-    }
-    return null;
-  }
-
-  // Per-team expected goals (xG), if the feed carries it. ESPN's exact key and
-  // nesting are uncertain for the World Cup feed, so search each team's subtree
-  // defensively for a stat that looks like xG. Falls back to the per-competitor
-  // stats on the header. Returns null when nothing usable is found.
-  function parseXG(summary, sideById) {
-    var out = {}, found = false;
-    (get(summary, ['boxscore', 'teams'], []) || []).forEach(function (t) {
-      var side = sideById[String(get(t, ['team', 'id'], ''))] ||
-                 sideById[String(get(t, ['team', 'uid'], ''))];
-      if (!side) return;
-      var v = findXG(t, 0);
-      if (v != null) { out[side] = v; found = true; }
-    });
-    if (!found) {
-      (get(summary, ['header', 'competitions', 0, 'competitors'], []) || []).forEach(function (c) {
-        if (!c || !c.homeAway) return;
-        var v = findXG(c.statistics, 0);
-        if (v != null) { out[c.homeAway] = v; found = true; }
-      });
-    }
-    return found ? out : null;
-  }
-
-  function num(v) { if (v == null) return null; var n = parseFloat(v); return isNaN(n) ? null : n; }
-
   /* ---- tiny session cache -------------------------------------------------
      Only ever caches data that can't change again: a day is cached once all
      its matches have ENDED (or the date is already in the past), and a match
@@ -285,7 +226,7 @@
      Lives in sessionStorage and clears when the tab closes. */
   // Bump the version whenever the parsed match shape changes, so stale
   // session caches from an older build are discarded rather than reused.
-  var CACHE_KEY = 'wc26-cache-v6';
+  var CACHE_KEY = 'wc26-cache-v7';
   var mem = { scoreboard: {}, summary: {} };
   var ss = (function () { try { return (typeof sessionStorage !== 'undefined') ? sessionStorage : null; } catch (e) { return null; } })();
 
@@ -334,16 +275,15 @@
   function fetchDetails(match) {
     if (!match._espnId) return Promise.resolve(match);
     var c = mem.summary[match._espnId];
-    if (c) { match.scorers = clone(c.scorers); match.cards = clone(c.cards); match.xg = c.xg ? clone(c.xg) : null; return Promise.resolve(match); }
+    if (c) { match.scorers = clone(c.scorers); match.cards = clone(c.cards); return Promise.resolve(match); }
     return fetchJSON(BASE + '/summary?event=' + match._espnId)
       .then(function (s) {
         var d = parseSummary(s);
         match.scorers = d.scorers;
         match.cards = d.cards;
-        match.predictor = d.predictor;   // meaningful pre-match
-        match.xg = d.xg;                 // meaningful in-play / post-match
+        match.predictor = d.predictor;   // win-probability from sportsbook odds (pre-match)
         // Only a finished match's details are final; never cache in-play data.
-        if (match.status === 'ft') { mem.summary[match._espnId] = { scorers: d.scorers, cards: d.cards, xg: d.xg }; persist(); }
+        if (match.status === 'ft') { mem.summary[match._espnId] = { scorers: d.scorers, cards: d.cards }; persist(); }
         return match;
       })
       .catch(function () { return match; }); // detail is best-effort

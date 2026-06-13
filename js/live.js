@@ -146,12 +146,11 @@
         var i = idx[m._espnId];
         if (i != null) {
           // Carry over already-fetched detail the fresh scoreboard object lacks,
-          // so a poll doesn't wipe scorers/cards/xg/predictor between detail fetches.
+          // so a poll doesn't wipe scorers/cards/predictor between detail fetches.
           var old = state.matches[i];
           if ((!m.scorers || !m.scorers.length) && old.scorers && old.scorers.length) m.scorers = old.scorers;
           if ((!m.cards || !m.cards.length) && old.cards && old.cards.length) m.cards = old.cards;
           if (m.predictor == null && old.predictor) m.predictor = old.predictor;
-          if (m.xg == null && old.xg) m.xg = old.xg;
           state.matches[i] = m;
         } else { idx[m._espnId] = state.matches.length; state.matches.push(m); }
       });
