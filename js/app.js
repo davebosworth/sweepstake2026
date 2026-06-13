@@ -45,9 +45,22 @@
   // field names from a phone (screenshot it). Remove once verified.
   function debugEspnPanel(st) {
     var panel = el('div', { class: 'panel', style: 'border-color:var(--gold)' });
-    panel.appendChild(el('h2', null, ['ESPN DEBUG (temporary)']));
-    var pre = el('pre', { style: 'white-space:pre-wrap;word-break:break-word;font-size:11px;line-height:1.5;color:#cfe;max-height:70vh;overflow:auto;margin:0' });
-    pre.textContent = 'loading ESPN summaries…';
+    var copyBtn = el('button', { class: 'btn', type: 'button', style: 'float:right;font-size:12px;padding:4px 10px' }, ['Copy to clipboard']);
+    panel.appendChild(el('h2', null, ['ESPN DEBUG (temporary)', copyBtn]));
+    var pre = el('textarea', {
+      readonly: 'readonly', spellcheck: 'false',
+      style: 'display:block;width:100%;box-sizing:border-box;height:60vh;resize:vertical;' +
+        'font:11px/1.5 ui-monospace,Menlo,Consolas,monospace;color:#cfe;background:#041a13;' +
+        'border:1px solid var(--border);border-radius:8px;padding:10px;white-space:pre;overflow:auto'
+    });
+    pre.value = 'loading ESPN summaries…';
+    copyBtn.addEventListener('click', function () {
+      pre.focus(); pre.select();
+      var done = function () { copyBtn.textContent = 'Copied!'; setTimeout(function () { copyBtn.textContent = 'Copy to clipboard'; }, 1200); };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(pre.value).then(done, function () { try { document.execCommand('copy'); done(); } catch (e) {} });
+      } else { try { document.execCommand('copy'); done(); } catch (e) {} }
+    });
     panel.appendChild(pre);
     var fin = st.matches.filter(function (m) { return m.status === 'ft' || m.status === 'live'; })[0];
     var sched = st.matches.filter(function (m) { return m.status === 'scheduled'; })[0];
@@ -104,7 +117,7 @@
         })['catch'](function (e) { return tag + ' ERROR: ' + e.message + '\n'; });
     }
     Promise.all([dump('FINISHED/LIVE', fin), dump('SCHEDULED', sched)])
-      .then(function (parts) { pre.textContent = parts.join('\n'); });
+      .then(function (parts) { pre.value = parts.join('\n'); });
     return panel;
   }
 
