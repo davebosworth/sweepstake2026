@@ -385,6 +385,76 @@
       t.appendChild(tb); gbPanel.appendChild(t);
     }
     root.appendChild(gbPanel);
+
+    // Power Rankings & Luck (need odds for pre-tournament strength).
+    if (oddsState.status !== 'ok') {
+      var note = el('div', { class: 'panel' });
+      note.appendChild(el('h2', null, ['Power Rankings & Luck']));
+      note.appendChild(el('p', { class: 'empty' }, ['Add a betting-odds API key on the ', el('b', null, ['Winner Odds']), ' tab to blend form with pre-tournament odds.']));
+      root.appendChild(note);
+      return root;
+    }
+
+    var power = WC.Stats.powerRankings(st, oddsState.rows);
+    var pPanel = el('div', { class: 'panel' });
+    pPanel.appendChild(el('h2', null, ['Power Rankings ', el('span', { class: 'sub' }, ['odds + form (weights toward form as games are played)'])]));
+    var pt = el('table', { class: 'tbl power' });
+    pt.innerHTML = '<thead><tr><th>#</th><th>Team</th><th>Owner</th><th class="r">Power</th><th class="r">P</th><th class="r">Pts</th><th class="r">GD</th><th class="r">Δ vs odds</th></tr></thead>';
+    var ptb = el('tbody');
+    power.slice(0, 20).forEach(function (r, i) {
+      var tr = el('tr', i === 0 ? { class: 'leader' } : null);
+      var gd = (r.GD > 0 ? '+' : '') + r.GD;
+      var dv = r.divergence == null ? '<span class="muted">—</span>'
+        : '<span class="' + (r.divergence >= 0 ? 'green' : 'red') + '">' + (r.divergence >= 0 ? '+' : '−') + Math.round(Math.abs(r.divergence) * 100) + '</span>';
+      tr.innerHTML = '<td>' + (i + 1) + '</td><td class="b">' + r.team + '</td><td class="muted">' + r.owner +
+        '</td><td class="r b gold">' + Math.round(r.power * 100) + '</td><td class="r">' + r.P + '</td><td class="r">' + r.Pts +
+        '</td><td class="r">' + gd + '</td><td class="r">' + dv + '</td>';
+      ptb.appendChild(tr);
+    });
+    pt.appendChild(ptb); pPanel.appendChild(pt);
+    pPanel.appendChild(el('p', { class: 'muted small', style: 'margin:10px 2px 0' }, ['Power = 0–100 blend of pre-tournament odds and results. Δ vs odds shows how much a team is over- (green) or under-performing (red) its billing.']));
+    root.appendChild(pPanel);
+
+    // Surprises: biggest over/under-performers (played teams only).
+    var played = power.filter(function (r) { return r.divergence != null; });
+    if (played.length) {
+      var over = played.slice().sort(function (a, b) { return b.divergence - a.divergence; }).slice(0, 3);
+      var under = played.slice().sort(function (a, b) { return a.divergence - b.divergence; }).slice(0, 3);
+      function surprise(title, rows, cls) {
+        var box = el('div', { class: 'panel' });
+        box.appendChild(el('h2', null, [title]));
+        rows.forEach(function (r) {
+          box.appendChild(el('div', { class: 'surprise-row' }, [
+            el('span', { class: 'b' }, [r.team]), el('span', { class: 'muted' }, [' · ' + r.owner]),
+            el('span', { class: cls }, [(r.divergence >= 0 ? '+' : '−') + Math.round(Math.abs(r.divergence) * 100)])
+          ]));
+        });
+        return box;
+      }
+      var col = el('div', { class: 'two-col' }, [
+        surprise('Over-performers', over, 'green'),
+        surprise('Under-performers', under, 'red')
+      ]);
+      root.appendChild(col);
+    }
+
+    // Luck Index per player.
+    var luck = WC.Stats.luckIndex(st, oddsState.rows);
+    var lPanel = el('div', { class: 'panel' });
+    lPanel.appendChild(el('h2', null, ['Luck Index ', el('span', { class: 'sub' }, ['actual vs odds-expected points'])]));
+    var lt = el('table', { class: 'tbl' });
+    lt.innerHTML = '<thead><tr><th>Player</th><th class="r">Actual pts</th><th class="r">Expected</th><th class="r">Luck</th></tr></thead>';
+    var ltb = el('tbody');
+    luck.forEach(function (r, i) {
+      var tr = el('tr', i === 0 ? { class: 'leader' } : null);
+      var lk = (r.luck >= 0 ? '+' : '−') + Math.abs(r.luck).toFixed(1);
+      tr.innerHTML = '<td class="b">' + r.player + '</td><td class="r">' + r.actualPts + '</td><td class="r muted">' + r.expectedPts.toFixed(1) +
+        '</td><td class="r b ' + (r.luck >= 0 ? 'green' : 'red') + '">' + lk + '</td>';
+      ltb.appendChild(tr);
+    });
+    lt.appendChild(ltb); lPanel.appendChild(lt);
+    lPanel.appendChild(el('p', { class: 'muted small', style: 'margin:10px 2px 0' }, ['Positive = a player’s teams are earning more points than the odds predicted; negative = unlucky.']));
+    root.appendChild(lPanel);
     return root;
   }
 

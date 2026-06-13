@@ -85,10 +85,59 @@
     return out;
   }
 
+  /* Power rankings: blend results-so-far with pre-tournament odds strength.
+     Weight shifts from pure odds (no games) toward results as games are played,
+     so a single fluke result can't top the table. Returns all 48, best-first. */
+  function powerRankings(state, oddsRows) {
+    var prob = {}, maxP = 0;
+    (oddsRows || []).forEach(function (r) {
+      if (r.winnerProb != null) { prob[r.team] = r.winnerProb; if (r.winnerProb > maxP) maxP = r.winnerProb; }
+    });
+    var teams = S.computeTeams(state);
+    return WC.TEAMS.map(function (name) {
+      var t = teams[name] || { owner: WC.ownerOf(name), P: 0, Pts: 0, GD: 0, played: false };
+      var strengthNorm = (maxP > 0 && prob[name] != null) ? prob[name] / maxP : 0;
+      var ppg = t.P > 0 ? t.Pts / t.P : 0;
+      var gdpg = t.P > 0 ? t.GD / t.P : 0;
+      var resultNorm = Math.max(0, Math.min(1, ppg / 3 + gdpg / 12));
+      var w = Math.min(t.P, 3) / 3 * 0.6;                 // 0 (no games) → 0.6 (3+ games)
+      var power = w * resultNorm + (1 - w) * strengthNorm;
+      return {
+        team: name, owner: t.owner, power: power, strengthNorm: strengthNorm, resultNorm: resultNorm,
+        divergence: t.played ? (resultNorm - strengthNorm) : null,
+        P: t.P, Pts: t.Pts, GD: t.GD, played: t.played
+      };
+    }).sort(function (a, b) { return b.power - a.power; });
+  }
+
+  /* Per-player luck: actual league points vs points "expected" from each team's
+     pre-tournament strength percentile (strong teams expected ~2 ppg, weak
+     ~0.7). Positive = teams outperforming their billing. */
+  function luckIndex(state, oddsRows) {
+    var prob = {};
+    (oddsRows || []).forEach(function (r) { prob[r.team] = (r.winnerProb != null) ? r.winnerProb : 0; });
+    var arr = WC.TEAMS.map(function (n) { return { team: n, p: prob[n] || 0 }; })
+      .sort(function (a, b) { return a.p - b.p; });
+    var N = arr.length, pct = {};
+    arr.forEach(function (x, i) { pct[x.team] = N > 1 ? i / (N - 1) : 0; });
+    function expPPG(team) { return 0.7 + 1.3 * (pct[team] || 0); }
+    var teams = S.computeTeams(state);
+    return WC.PLAYERS.map(function (pl) {
+      var actual = 0, expected = 0, played = 0;
+      pl.teams.forEach(function (tn) {
+        var t = teams[tn];
+        if (t && t.P > 0) { actual += t.Pts; expected += expPPG(tn) * t.P; played += 1; }
+      });
+      return { player: pl.name, actualPts: actual, expectedPts: expected, luck: actual - expected, played: played };
+    }).sort(function (a, b) { return b.luck - a.luck; });
+  }
+
   WC.Stats = {
     parseScorer: parseScorer,
     goldenBoot: goldenBoot,
-    records: records
+    records: records,
+    powerRankings: powerRankings,
+    luckIndex: luckIndex
   };
 
 })(window.WC = window.WC || {});
