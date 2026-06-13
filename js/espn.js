@@ -168,8 +168,45 @@
         cards.push({ team: side, player: who || 'Unknown', type: 'yellow' });
       }
     });
-    return { scorers: scorers, cards: cards };
+    return { scorers: scorers, cards: cards, predictor: parsePredictor(summary), xg: parseXG(summary, sideById) };
   }
+
+  // Pre-match win-probability predictor (home/draw/away %), if ESPN provides it.
+  // Field shapes are probed defensively; returns null if nothing usable is found.
+  function parsePredictor(summary) {
+    var p = summary && summary.predictor;
+    if (!p) return null;
+    var home = num(get(p, ['homeTeam', 'gameProjection']));
+    var away = num(get(p, ['awayTeam', 'gameProjection']));
+    if (home == null && away == null) return null;
+    var draw = num(get(p, ['homeTeam', 'teamChanceTie'])) ||
+               num(get(p, ['drawPercentage'])) || num(get(p, ['tiePercentage']));
+    if (draw == null && home != null && away != null) draw = Math.max(0, 100 - home - away);
+    return { home: home, draw: draw, away: away };
+  }
+
+  // Per-team expected goals (xG) from the box score statistics, if present.
+  // ESPN's exact key is uncertain for the World Cup feed, so match defensively
+  // on a stat whose name/label/abbreviation looks like xG; returns null if absent.
+  function parseXG(summary, sideById) {
+    var teams = get(summary, ['boxscore', 'teams'], []);
+    if (!teams || !teams.length) return null;
+    var out = {}, found = false;
+    teams.forEach(function (t) {
+      var side = sideById[String(get(t, ['team', 'id'], ''))];
+      if (!side) return;
+      (t.statistics || []).forEach(function (s) {
+        var tag = ((s.name || '') + ' ' + (s.abbreviation || '') + ' ' + (s.label || '') + ' ' + (s.displayName || '')).toLowerCase();
+        if (/expected goals|expectedgoals|\bxg\b/.test(tag)) {
+          var v = parseFloat(s.displayValue != null ? s.displayValue : s.value);
+          if (!isNaN(v)) { out[side] = v; found = true; }
+        }
+      });
+    });
+    return found ? out : null;
+  }
+
+  function num(v) { if (v == null) return null; var n = parseFloat(v); return isNaN(n) ? null : n; }
 
   /* ---- tiny session cache -------------------------------------------------
      Only ever caches data that can't change again: a day is cached once all
@@ -179,7 +216,7 @@
      Lives in sessionStorage and clears when the tab closes. */
   // Bump the version whenever the parsed match shape changes, so stale
   // session caches from an older build are discarded rather than reused.
-  var CACHE_KEY = 'wc26-cache-v4';
+  var CACHE_KEY = 'wc26-cache-v5';
   var mem = { scoreboard: {}, summary: {} };
   var ss = (function () { try { return (typeof sessionStorage !== 'undefined') ? sessionStorage : null; } catch (e) { return null; } })();
 
@@ -228,14 +265,16 @@
   function fetchDetails(match) {
     if (!match._espnId) return Promise.resolve(match);
     var c = mem.summary[match._espnId];
-    if (c) { match.scorers = clone(c.scorers); match.cards = clone(c.cards); return Promise.resolve(match); }
+    if (c) { match.scorers = clone(c.scorers); match.cards = clone(c.cards); match.xg = c.xg ? clone(c.xg) : null; return Promise.resolve(match); }
     return fetchJSON(BASE + '/summary?event=' + match._espnId)
       .then(function (s) {
         var d = parseSummary(s);
         match.scorers = d.scorers;
         match.cards = d.cards;
+        match.predictor = d.predictor;   // meaningful pre-match
+        match.xg = d.xg;                 // meaningful in-play / post-match
         // Only a finished match's details are final; never cache in-play data.
-        if (match.status === 'ft') { mem.summary[match._espnId] = { scorers: d.scorers, cards: d.cards }; persist(); }
+        if (match.status === 'ft') { mem.summary[match._espnId] = { scorers: d.scorers, cards: d.cards, xg: d.xg }; persist(); }
         return match;
       })
       .catch(function () { return match; }); // detail is best-effort
