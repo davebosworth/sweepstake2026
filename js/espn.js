@@ -138,7 +138,7 @@
 
   // Pull goalscorers and cards out of a summary payload.
   function parseSummary(summary) {
-    var scorers = [], cards = [];
+    var scorers = [], cards = [], goalSeen = {};
 
     // Map ESPN id -> 'home'/'away' from the summary header. Different parts of
     // the payload reference a side by different ids (the event-competitor id,
@@ -163,7 +163,21 @@
                 get(e, ['athletesInvolved', 0, 'shortName'], '') || '';
       var clock = get(e, ['clock', 'displayValue'], '') || '';
 
-      if (typeText.indexOf('goal') !== -1 && typeText.indexOf('disallow') === -1) {
+      // A goal: ESPN flags it via scoringPlay, or the type says "Goal", or a
+      // scored penalty ("Penalty - Scored" — note: no "goal" in that text, which
+      // is why penalties were being dropped). Exclude misses/saves, disallowed
+      // goals, and shoot-out kicks (those aren't match goals).
+      var miss = /missed|saved|disallow|no goal|cancel/.test(typeText);
+      var isGoal = !miss && e.shootout !== true &&
+        (e.scoringPlay === true || typeText.indexOf('goal') !== -1 ||
+         (typeText.indexOf('penalty') !== -1 && typeText.indexOf('scored') !== -1));
+
+      if (isGoal) {
+        // Guard against the same goal appearing as two key events (e.g. a
+        // "Penalty - Scored" plus a "Goal"): skip an exact side+minute+player repeat.
+        var dupKey = side + '|' + clock + '|' + who.toLowerCase();
+        if (clock && who && goalSeen[dupKey]) return;
+        goalSeen[dupKey] = 1;
         var label = who + (clock ? ' ' + clock : '');
         if (typeText.indexOf('penalty') !== -1) label += ' (pen)';
         if (typeText.indexOf('own') !== -1) label += ' (og)';
@@ -226,7 +240,7 @@
      Lives in sessionStorage and clears when the tab closes. */
   // Bump the version whenever the parsed match shape changes, so stale
   // session caches from an older build are discarded rather than reused.
-  var CACHE_KEY = 'wc26-cache-v7';
+  var CACHE_KEY = 'wc26-cache-v8';
   var mem = { scoreboard: {}, summary: {} };
   var ss = (function () { try { return (typeof sessionStorage !== 'undefined') ? sessionStorage : null; } catch (e) { return null; } })();
 
