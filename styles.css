@@ -201,6 +201,11 @@ input:focus, select:focus { outline: none; border-color: var(--green); }
 .chk input { width: auto; }
 .small { font-size: 12px; }
 .red { color: var(--red); }
+.green { color: var(--green); }
+.tbl .green { color: var(--green); }
+.surprise-row { display: flex; align-items: baseline; gap: 4px; padding: 6px 0; border-bottom: 1px solid rgba(29,87,66,0.4); }
+.surprise-row:last-child { border-bottom: none; }
+.surprise-row .green, .surprise-row .red { margin-left: auto; font-weight: bold; }
 
 /* odds settings grid */
 .odds-cfg { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 14px 0; }
@@ -277,6 +282,11 @@ input:focus, select:focus { outline: none; border-color: var(--green); }
 
   /* Golden Boot: drop the secondary Pens column on phones. */
   .tbl.scorers th:nth-child(6), .tbl.scorers td:nth-child(6) { display: none; }
+
+  /* Power Rankings: drop P/Pts/GD on phones, keep # Team Owner Power Δ. */
+  .tbl.power th:nth-child(5), .tbl.power td:nth-child(5),
+  .tbl.power th:nth-child(6), .tbl.power td:nth-child(6),
+  .tbl.power th:nth-child(7), .tbl.power td:nth-child(7) { display: none; }
 
   /* Allocations: a 7-column grid can't fit; show each player as a card with
      their teams as wrapping chips. */
