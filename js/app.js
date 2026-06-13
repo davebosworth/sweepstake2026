@@ -407,7 +407,7 @@
     var panel = el('div', { class: 'panel' });
     var anyLive = rows.some(function (r) { return r.live; });
     panel.appendChild(el('h2', null, [label, anyLive ? el('span', { class: 'sub' }, ['live — provisional']) : null]));
-    var t = el('table', { class: 'tbl' });
+    var t = el('table', { class: 'tbl standings' });
     t.innerHTML = '<thead><tr><th>#</th><th>Team</th><th>Owner</th><th class="r">P</th><th class="r">W</th><th class="r">D</th><th class="r">L</th><th class="r">GF</th><th class="r">GA</th><th class="r">GD</th><th class="r">Pts</th></tr></thead>';
     var tb = el('tbody');
     rows.forEach(function (r) {
@@ -670,6 +670,13 @@
     var view = $('#view');
     view.innerHTML = '';
     view.appendChild(TABS.filter(function (t) { return t[0] === activeTab; })[0][2]());
+    // Wrap data tables so wide ones scroll horizontally instead of overflowing.
+    $$('#view table.tbl').forEach(function (t) {
+      var p = t.parentNode;
+      if (p && p.classList && p.classList.contains('tbl-wrap')) return;
+      var w = el('div', { class: 'tbl-wrap' });
+      p.insertBefore(w, t); w.appendChild(t);
+    });
   }
 
   function init() {

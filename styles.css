@@ -210,3 +210,65 @@ input:focus, select:focus { outline: none; border-color: var(--green); }
 .preview svg { width: 100%; height: auto; display: block; border-radius: 12px; }
 
 .appfoot { text-align: center; color: var(--muted); font-size: 12px; padding: 24px; }
+
+/* horizontal scroll for wide data tables (keeps them readable on narrow screens) */
+.tbl-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.tbl-wrap .tbl { min-width: 100%; }
+
+/* =========================================================================
+   Mobile (phones). Tighten chrome, let dense tables scroll, single-line tabs.
+   ========================================================================= */
+@media (max-width: 600px) {
+  .topbar { padding: 12px 14px; gap: 10px; }
+  .brand { gap: 10px; }
+  .brand-mark { width: 38px; height: 38px; font-size: 22px; }
+  .brand h1 { font-size: 16px; }
+  .brand p { font-size: 11px; letter-spacing: 1px; }
+  .status { font-size: 12px; }
+
+  /* tabs become a single swipeable row instead of wrapping */
+  .tabs { padding: 10px 10px 0; gap: 2px; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tabs button { padding: 10px 12px; font-size: 13px; white-space: nowrap; flex: none; }
+
+  .view { padding: 14px 12px; }
+  .group-grid { grid-template-columns: 1fr; }
+  .panel { padding: 14px; margin-bottom: 14px; border-radius: 12px; }
+  .panel h2 { font-size: 16px; flex-wrap: wrap; gap: 6px; }
+
+  /* let wide tables scroll within their panel rather than overflow the page */
+  .tbl-wrap { margin: 0 -14px; padding: 0 14px; }
+  .tbl { font-size: 13px; }
+  .tbl th { padding: 6px 7px; }
+  .tbl td { padding: 8px 7px; white-space: nowrap; }
+
+  .grid { gap: 10px; }
+  .stat { padding: 14px; }
+  .stat-v { font-size: 20px; }
+
+  .match-head { gap: 8px 10px; padding: 11px 13px; }
+  .tag { min-width: 56px; }
+  .mr-teams { font-size: 14px; }
+  .mr-owners { width: 100%; }
+
+  .report-controls { position: static; }
+  .preview { padding: 10px; }
+
+  /* Standings: drop secondary columns (W D L GF GA) so the key ones — P, GD,
+     Pts — stay on screen without horizontal scrolling. */
+  .tbl.standings th:nth-child(5), .tbl.standings td:nth-child(5),
+  .tbl.standings th:nth-child(6), .tbl.standings td:nth-child(6),
+  .tbl.standings th:nth-child(7), .tbl.standings td:nth-child(7),
+  .tbl.standings th:nth-child(8), .tbl.standings td:nth-child(8),
+  .tbl.standings th:nth-child(9), .tbl.standings td:nth-child(9) { display: none; }
+
+  /* Allocations: a 7-column grid can't fit; show each player as a card with
+     their teams as wrapping chips. */
+  .tbl.alloc, .tbl.alloc tbody, .tbl.alloc tr, .tbl.alloc td { display: block; width: 100%; }
+  .tbl.alloc thead { display: none; }
+  .tbl.alloc tr { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; }
+  .tbl.alloc td { border: none; padding: 0; white-space: normal; }
+  .tbl.alloc td.b.gold { font-size: 15px; margin-bottom: 6px; }
+  .tbl.alloc td:not(:first-child) { display: inline-block; width: auto; background: var(--card-2); border: 1px solid var(--border); border-radius: 6px; padding: 3px 9px; margin: 2px 5px 2px 0; font-size: 12px; }
+}
+
