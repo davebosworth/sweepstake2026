@@ -40,6 +40,50 @@
   }
 
   /* ---- TAB: Dashboard ----------------------------------------------------- */
+  // Hash-gated (#debug) inspector: dumps the raw ESPN keyEvents for finished
+  // matches whose listed-scorer count doesn't match the score, so a dropped
+  // goal (e.g. an own goal with no resolvable team) can be diagnosed. Only
+  // renders when the URL contains #debug; remove once the parser is confirmed.
+  function debugKeyEvents() {
+    var st = Live.get();
+    var panel = el('div', { class: 'panel', style: 'border-color:var(--gold)' });
+    var copyBtn = el('button', { class: 'btn', type: 'button', style: 'float:right;font-size:12px;padding:4px 10px' }, ['Copy']);
+    panel.appendChild(el('h2', null, ['keyEvents debug (#debug)', copyBtn]));
+    var pre = el('textarea', {
+      readonly: 'readonly', spellcheck: 'false',
+      style: 'display:block;width:100%;box-sizing:border-box;height:50vh;resize:vertical;' +
+        'font:11px/1.5 ui-monospace,Menlo,Consolas,monospace;color:#cfe;background:#041a13;' +
+        'border:1px solid var(--border);border-radius:8px;padding:10px;white-space:pre;overflow:auto'
+    });
+    pre.value = 'loading…';
+    copyBtn.addEventListener('click', function () {
+      pre.focus(); pre.select();
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(pre.value)['catch'](function () {});
+      else { try { document.execCommand('copy'); } catch (e) {} }
+    });
+    panel.appendChild(pre);
+    var bad = (st.matches || []).filter(function (m) {
+      return m.status === 'ft' && m.homeScore != null && (m.homeScore + m.awayScore) !== (m.scorers || []).length;
+    });
+    if (!bad.length) { pre.value = 'No score/scorer mismatches in the current data.'; return panel; }
+    Promise.all(bad.slice(0, 8).map(function (m) {
+      return fetch(WC.ESPN.BASE + '/summary?event=' + m._espnId).then(function (r) { return r.json(); }).then(function (s) {
+        var out = '=== ' + m.home + ' ' + m.homeScore + '-' + m.awayScore + ' ' + m.away + ' (' + m._espnId + ') ===\n';
+        (s.keyEvents || []).forEach(function (e) {
+          var t = (e.type && e.type.text) || '';
+          if (!/goal/i.test(t)) return;
+          out += JSON.stringify({
+            type: t, scoringPlay: e.scoringPlay, teamId: e.team && e.team.id,
+            ai: (e.athletesInvolved || []).map(function (a) { return { name: a.displayName, teamId: a.team && a.team.id, ownGoal: a.ownGoal }; }),
+            participants: e.participants, clock: e.clock && e.clock.displayValue
+          }) + '\n';
+        });
+        return out + '\n';
+      })['catch'](function (e) { return m.home + ' v ' + m.away + ' ERROR: ' + e.message + '\n'; });
+    })).then(function (parts) { pre.value = parts.join('\n'); });
+    return panel;
+  }
+
   function renderDashboard() {
     var st = Live.get();
     var disc = S.disciplinary(st);
@@ -50,6 +94,7 @@
 
 
     var root = el('div');
+    if (typeof location !== 'undefined' && /debug/i.test(location.hash)) root.appendChild(debugKeyEvents());
 
     var liveNow = st.matches.filter(function (m) { return m.status === 'live'; }).sort(byKickoff);
     if (liveNow.length) {
