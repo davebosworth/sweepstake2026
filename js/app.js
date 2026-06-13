@@ -51,20 +51,56 @@
     panel.appendChild(pre);
     var fin = st.matches.filter(function (m) { return m.status === 'ft' || m.status === 'live'; })[0];
     var sched = st.matches.filter(function (m) { return m.status === 'scheduled'; })[0];
+    // Probe ESPN's deeper "core" API (different host) for an expected-goals
+    // stat, since the free summary feed doesn't carry it. Follows each
+    // competitor's statistics $ref and reports any xG-looking stat (and, if
+    // none, lists the stat names available so we can spot an alias).
+    function probeCoreXG(ev, ids) {
+      var CORE = 'https://sports.core.api.espn.com/v2/sports/soccer/leagues/fifa.world/events/' +
+        ev + '/competitions/' + ev + '/competitors/';
+      function scan(j) {
+        var names = [], xg = [];
+        (((j.splits || {}).categories) || []).forEach(function (cat) {
+          (cat.stats || []).forEach(function (s) {
+            names.push(s.name || s.abbreviation);
+            var tg = ((s.name || '') + ' ' + (s.abbreviation || '') + ' ' + (s.displayName || '')).toLowerCase();
+            if (/expected goals|expectedgoals|\bxg\b/.test(tg)) xg.push((s.name || s.abbreviation) + '=' + (s.displayValue != null ? s.displayValue : s.value));
+          });
+        });
+        return { names: names, xg: xg };
+      }
+      return Promise.all(ids.map(function (id) {
+        return fetch(CORE + id).then(function (r) { if (!r.ok) throw new Error('competitor HTTP ' + r.status); return r.json(); })
+          .then(function (comp) {
+            var ref = comp.statistics && comp.statistics.$ref;
+            if (!ref) return 'core[' + id + ']: no statistics.$ref (keys: ' + Object.keys(comp).join(',') + ')';
+            return fetch(ref.replace(/^http:/, 'https:')).then(function (r) { if (!r.ok) throw new Error('stats HTTP ' + r.status); return r.json(); })
+              .then(function (j) { var res = scan(j); return 'core[' + id + ']: ' + (res.xg.length ? ('XG FOUND -> ' + res.xg.join(', ')) : ('no xG; ' + res.names.length + ' stats: ' + res.names.join(','))); });
+          })['catch'](function (e) { return 'core[' + id + '] ERROR: ' + e.message; });
+      })).then(function (lines) { return 'CORE API xG probe (sports.core.api.espn.com):\n  ' + lines.join('\n  '); });
+    }
+
     function dump(tag, m) {
       if (!m) return Promise.resolve(tag + ': (no match)\n');
-      return fetch(WC.ESPN.BASE + '/summary?event=' + m._espnId)
+      var ev = m._espnId;
+      return fetch(WC.ESPN.BASE + '/summary?event=' + ev)
         .then(function (r) { return r.json(); })
         .then(function (s) {
-          var out = '=== ' + tag + ': ' + m.home + ' v ' + m.away + ' (' + m._espnId + ') ===\n';
+          var out = '=== ' + tag + ': ' + m.home + ' v ' + m.away + ' (' + ev + ') ===\n';
           out += 'top keys: ' + Object.keys(s).join(', ') + '\n';
           out += 'predictor: ' + JSON.stringify(s.predictor) + '\n';
+          out += 'hasOdds: ' + JSON.stringify(s.hasOdds) + '\n';
+          var pc = s.pickcenter || [];
+          out += 'pickcenter: ' + pc.length + ' entr(ies); first =\n' + JSON.stringify(pc[0], null, 1) + '\n';
+          out += 'odds: ' + JSON.stringify(Array.isArray(s.odds) ? s.odds[0] : s.odds, null, 1) + '\n';
           var bt = (s.boxscore && s.boxscore.teams) || [];
           out += 'boxscore.teams: ' + bt.length + '\n';
           bt.forEach(function (t, i) {
             out += 'team' + i + ' stats: ' + ((t.statistics || []).map(function (x) { return x.name + '/' + (x.abbreviation || '') + '=' + x.displayValue; }).join(' | ')) + '\n';
           });
-          return out + '\n';
+          var comps = ((s.header && s.header.competitions) || [])[0];
+          var ids = (((comps && comps.competitors) || []).map(function (c) { return c && (c.id || (c.team && c.team.id)); })).filter(Boolean);
+          return probeCoreXG(ev, ids).then(function (rep) { return out + rep + '\n'; });
         })['catch'](function (e) { return tag + ' ERROR: ' + e.message + '\n'; });
     }
     Promise.all([dump('FINISHED/LIVE', fin), dump('SCHEDULED', sched)])
