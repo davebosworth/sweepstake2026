@@ -336,7 +336,7 @@
     y = sectionHeading(parts, y, 'Disciplinary Prize') + 6;
     parts.push(text(M, y, 'Red = 3 · Yellow = 1 · most points wins', { fill: T.muted, size: 22 }));
     y += 22;
-    y = disciplinaryTable(parts, y, disc) + 30;
+    y = disciplinaryTable(parts, y, disc.slice(0, 5)) + 30;
 
     // -- Footer --
     var note = state.footerNote || (fixtures.length ? 'Late kick-offs land in tomorrow’s report.' : 'All confirmed results shown.');
