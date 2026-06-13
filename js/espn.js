@@ -177,21 +177,45 @@
     return { scorers: scorers, cards: cards, predictor: parsePredictor(summary), xg: parseXG(summary, sideById) };
   }
 
-  // Pre-match win-probability predictor (home/draw/away %), if ESPN provides it.
-  // Field shapes are probed defensively; returns null if nothing usable is found.
+  // Win-probability predictor (home/draw/away %). ESPN's World Cup summary has
+  // no `predictor` block, but it does carry sportsbook odds in `pickcenter` (and
+  // a copy in `odds`): a 1X2 moneyline for home/draw/away. We convert those to
+  // implied probabilities and normalise out the bookmaker's overround so the
+  // three sum to 100%. Returns null if no usable moneyline is present.
   function parsePredictor(summary) {
-    var p = summary && summary.predictor;
-    if (!p) return null;
-    var home = num(get(p, ['homeTeam', 'gameProjection'])) != null
-      ? num(get(p, ['homeTeam', 'gameProjection'])) : num(get(p, ['homeTeam', 'teamChanceWin']));
-    var away = num(get(p, ['awayTeam', 'gameProjection'])) != null
-      ? num(get(p, ['awayTeam', 'gameProjection'])) : num(get(p, ['awayTeam', 'teamChanceWin']));
-    if (home == null && away == null) return null;
-    var draw = num(get(p, ['homeTeam', 'teamChanceTie'])) ||
-               num(get(p, ['awayTeam', 'teamChanceTie'])) ||
-               num(get(p, ['drawPercentage'])) || num(get(p, ['tiePercentage']));
-    if (draw == null && home != null && away != null) draw = Math.max(0, 100 - home - away);
-    return { home: home, draw: draw, away: away };
+    var pc = summary && summary.pickcenter;
+    var entry = (Array.isArray(pc) && pc.length ? pc[0] : null) || (summary && summary.odds) || null;
+    if (!entry) return null;
+    var ml = entry.moneyline || {};
+    // Prefer the structured moneyline.{home,away,draw}.close.odds; fall back to
+    // the {home,away}TeamOdds.moneyLine / drawOdds.moneyLine numbers.
+    var home = americanToProb(mlOdds(ml.home, get(entry, ['homeTeamOdds', 'moneyLine'])));
+    var away = americanToProb(mlOdds(ml.away, get(entry, ['awayTeamOdds', 'moneyLine'])));
+    var draw = americanToProb(mlOdds(ml.draw, get(entry, ['drawOdds', 'moneyLine'])));
+    if (home == null && away == null && draw == null) return null;
+    var sum = (home || 0) + (away || 0) + (draw || 0);
+    if (sum <= 0) return null;
+    return {
+      home: home != null ? home / sum * 100 : null,
+      draw: draw != null ? draw / sum * 100 : null,
+      away: away != null ? away / sum * 100 : null
+    };
+  }
+
+  // Pull a moneyline price from a pickcenter side ({ close:{odds}, open:{odds} }),
+  // falling back to a raw value (e.g. homeTeamOdds.moneyLine).
+  function mlOdds(side, fallback) {
+    var v = get(side, ['close', 'odds']);
+    if (v == null) v = get(side, ['open', 'odds']);
+    return v != null ? v : fallback;
+  }
+
+  // American moneyline (number or "+350" / "-115" string) -> implied prob 0..1.
+  function americanToProb(ml) {
+    if (ml == null) return null;
+    var n = parseFloat(String(ml).replace('+', ''));
+    if (isNaN(n) || n === 0) return null;
+    return n > 0 ? 100 / (n + 100) : (-n) / (-n + 100);
   }
 
   // Does a stat-like object's name/label/abbreviation look like xG?
