@@ -327,6 +327,67 @@
     return root;
   }
 
+  /* ---- TAB: Stats (Golden Boot + tournament records) ---------------------- */
+  function renderStats() {
+    var st = Live.get();
+    var root = el('div');
+    if (st.loading) { root.appendChild(loadingBlock('Loading stats…')); return root; }
+
+    var rec = WC.Stats.records(st);
+    var has = rec.matchesCounted > 0;
+    function matchLabel(x) { return x ? (x.m.home + ' ' + x.m.homeScore + '–' + x.m.awayScore + ' ' + x.m.away) : '—'; }
+
+    // Headline numbers
+    var grid = el('div', { class: 'grid' });
+    grid.appendChild(statCard('Goals', has ? rec.totalGoals : '—'));
+    grid.appendChild(statCard('Goals / game', rec.goalsPerGame != null ? rec.goalsPerGame.toFixed(2) : '—'));
+    grid.appendChild(statCard('Clean sheets', has ? rec.cleanSheets : '—'));
+    grid.appendChild(statCard('Yellow / Red', rec.totalYellows + ' / ' + rec.totalReds));
+    root.appendChild(grid);
+
+    // Records
+    var recPanel = el('div', { class: 'panel' });
+    recPanel.appendChild(el('h2', null, ['Tournament Records']));
+    if (!has) recPanel.appendChild(el('p', { class: 'empty' }, ['No completed matches yet.']));
+    else {
+      var rt = el('table', { class: 'tbl' });
+      rt.innerHTML = '<thead><tr><th>Record</th><th>Match</th></tr></thead>';
+      var rb = el('tbody');
+      [['Biggest win', matchLabel(rec.biggestWin)],
+       ['Highest-scoring', rec.highestScoring ? matchLabel(rec.highestScoring) + ' (' + rec.highestScoring.total + ')' : '—'],
+       ['Most cards', rec.mostCards ? matchLabel(rec.mostCards) + ' (' + rec.mostCards.cards + ')' : '—'],
+       ['Own goals', String(rec.ownGoals)]
+      ].forEach(function (row) {
+        var tr = el('tr');
+        tr.innerHTML = '<td class="b">' + row[0] + '</td><td class="muted">' + row[1] + '</td>';
+        rb.appendChild(tr);
+      });
+      rt.appendChild(rb); recPanel.appendChild(rt);
+    }
+    root.appendChild(recPanel);
+
+    // Golden Boot
+    var gb = WC.Stats.goldenBoot(st);
+    var gbPanel = el('div', { class: 'panel' });
+    gbPanel.appendChild(el('h2', null, ['Golden Boot ', el('span', { class: 'sub' }, ['top scorers'])]));
+    if (!gb.length) {
+      gbPanel.appendChild(el('p', { class: 'empty' }, [st.detailLoading ? 'Loading scorers from ESPN…' : 'No goals recorded yet.']));
+    } else {
+      var t = el('table', { class: 'tbl scorers' });
+      t.innerHTML = '<thead><tr><th>#</th><th>Player</th><th>Team</th><th>Owner</th><th class="r">Goals</th><th class="r">Pens</th></tr></thead>';
+      var tb = el('tbody');
+      gb.forEach(function (r, i) {
+        var tr = el('tr', i === 0 ? { class: 'leader' } : null);
+        tr.innerHTML = '<td>' + (i + 1) + (i === 0 ? ' ★' : '') + '</td><td class="b">' + r.player + '</td><td>' + r.team +
+          '</td><td class="muted">' + r.owner + '</td><td class="r b gold">' + r.goals + '</td><td class="r muted">' + (r.pens || '') + '</td>';
+        tb.appendChild(tr);
+      });
+      t.appendChild(tb); gbPanel.appendChild(t);
+    }
+    root.appendChild(gbPanel);
+    return root;
+  }
+
   /* ---- TAB: Fixtures & Results (read-only) -------------------------------- */
   function renderFixtures() {
     var st = Live.get();
@@ -662,6 +723,7 @@
     ['standings', 'Standings', renderStandings],
     ['odds', 'Winner Odds', renderOdds],
     ['players', 'Player Tracker', renderPlayers],
+    ['stats', 'Stats', renderStats],
     ['report', 'Morning Report', renderReport],
     ['allocations', 'Allocations', renderAllocations]
   ];
