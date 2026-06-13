@@ -17,10 +17,14 @@
     var pen = /\(pen\)/i.test(raw);
     var og = /\(og\)/i.test(raw);
     var s = raw.replace(/\s*\((?:pen|og)\)\s*/ig, ' ').trim();   // drop flags
+    // Trailing goal minute: a normal "67'" or ESPN stoppage time "45'+2'" /
+    // "90'+5'" (the apostrophe sits before the +). Match it then strip it, so a
+    // player scoring at different minutes isn't split into separate rows.
+    var MIN = /\s*\d+'(?:\s*\+\s*\d+'?)?\s*$/;
     var minute = '';
-    var mm = s.match(/(\d+(?:\+\d+)?)'\s*$/);                    // trailing minute
-    if (mm) minute = mm[1] + "'";
-    var player = s.replace(/\s*\d+(?:\+\d+)?'\s*$/, '').trim();
+    var mm = s.match(/(\d+'(?:\s*\+\s*\d+'?)?)\s*$/);
+    if (mm) minute = mm[1];
+    var player = s.replace(MIN, '').trim();
     if (!player) player = raw;                                   // defensive fallback
     return { player: player, minute: minute, pen: pen, og: og };
   }

@@ -413,7 +413,16 @@
       ptb.appendChild(tr);
     });
     pt.appendChild(ptb); pPanel.appendChild(pt);
-    pPanel.appendChild(el('p', { class: 'muted small', style: 'margin:10px 2px 0' }, ['Power = 0–100 blend of pre-tournament odds and results. Δ vs odds shows how much a team is over- (green) or under-performing (red) its billing.']));
+    pPanel.appendChild(el('p', { class: 'muted small', style: 'margin:10px 2px 0;line-height:1.6' }, [
+      'How it works: each team gets a 0–100 Power score that blends two things — its ' +
+      'pre-tournament strength (from the bookmakers’ tournament-winner odds, scaled so the ' +
+      'favourite sits near 100) and its form so far (points per game plus goal difference per game). ' +
+      'Before a team has played, the score is pure odds; with each game the weighting shifts toward ' +
+      'form, reaching a 60% form / 40% odds split once a team has three games in — so one freak result ' +
+      'can’t top the table early on. A higher Power means a stronger team right now. The “Δ vs odds” ' +
+      'column is form minus odds billing: green if a team is out-performing what the odds expected, ' +
+      'red if it’s falling short.'
+    ]));
     root.appendChild(pPanel);
 
     // Surprises: biggest over/under-performers (played teams only).
