@@ -280,8 +280,12 @@
       return (a.kickoff || '').localeCompare(b.kickoff || '');
     }
 
+    // Results: everything completed that's still fresh — yesterday's games plus
+    // any that finished earlier today (e.g. an early-hours kick-off that, in the
+    // host time zone, is dated today). Without the reportDate case these
+    // finished-today games show in neither section.
     var results = state.matches.filter(function (m) {
-      return WC.Standings.isFinished(m) && m.date === yDate;
+      return WC.Standings.isFinished(m) && (m.date === yDate || m.date === reportDate);
     }).sort(byTs);
 
     var fixtures = state.matches.filter(function (m) {
@@ -306,12 +310,12 @@
     parts.push(text(M + CW - PAD, 168, 'Generated ' + (opts.timestamp || new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })), { fill: T.muted, size: 20, anchor: 'end' }));
     y = 40 + headH + 40;
 
-    // -- Yesterday's Results --
-    y = sectionHeading(parts, y, "Yesterday's Results") + 8;
+    // -- Latest Results (yesterday + anything finished so far today) --
+    y = sectionHeading(parts, y, 'Latest Results') + 8;
     if (results.length) {
       results.forEach(function (m) { y = resultCard(parts, y, m) + 20; });
     } else {
-      y = emptyCard(parts, y, 'No completed matches yesterday') + 20;
+      y = emptyCard(parts, y, 'No completed matches yet') + 20;
     }
     y += 14;
 
