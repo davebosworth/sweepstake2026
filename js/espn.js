@@ -140,11 +140,17 @@
   function parseSummary(summary) {
     var scorers = [], cards = [];
 
-    // Map ESPN team id -> 'home'/'away' from the summary header.
+    // Map ESPN id -> 'home'/'away' from the summary header. Different parts of
+    // the payload reference a side by different ids (the event-competitor id,
+    // the underlying team id, the team uid), so register every one we can see
+    // — otherwise a join silently fails and that team's data is dropped.
     var sideById = {};
     var hcomps = get(summary, ['header', 'competitions', 0, 'competitors'], []);
     hcomps.forEach(function (c) {
-      if (c && c.id != null && c.homeAway) sideById[String(c.id)] = c.homeAway;
+      if (!c || !c.homeAway) return;
+      [c.id, get(c, ['team', 'id']), get(c, ['team', 'uid'])].forEach(function (id) {
+        if (id != null) sideById[String(id)] = c.homeAway;
+      });
     });
 
     var events = summary.keyEvents || get(summary, ['commentary'], []) || [];
@@ -176,33 +182,72 @@
   function parsePredictor(summary) {
     var p = summary && summary.predictor;
     if (!p) return null;
-    var home = num(get(p, ['homeTeam', 'gameProjection']));
-    var away = num(get(p, ['awayTeam', 'gameProjection']));
+    var home = num(get(p, ['homeTeam', 'gameProjection'])) != null
+      ? num(get(p, ['homeTeam', 'gameProjection'])) : num(get(p, ['homeTeam', 'teamChanceWin']));
+    var away = num(get(p, ['awayTeam', 'gameProjection'])) != null
+      ? num(get(p, ['awayTeam', 'gameProjection'])) : num(get(p, ['awayTeam', 'teamChanceWin']));
     if (home == null && away == null) return null;
     var draw = num(get(p, ['homeTeam', 'teamChanceTie'])) ||
+               num(get(p, ['awayTeam', 'teamChanceTie'])) ||
                num(get(p, ['drawPercentage'])) || num(get(p, ['tiePercentage']));
     if (draw == null && home != null && away != null) draw = Math.max(0, 100 - home - away);
     return { home: home, draw: draw, away: away };
   }
 
-  // Per-team expected goals (xG) from the box score statistics, if present.
-  // ESPN's exact key is uncertain for the World Cup feed, so match defensively
-  // on a stat whose name/label/abbreviation looks like xG; returns null if absent.
+  // Does a stat-like object's name/label/abbreviation look like xG?
+  function looksLikeXG(s) {
+    var tag = ((s.name || '') + ' ' + (s.abbreviation || '') + ' ' +
+               (s.label || '') + ' ' + (s.displayName || '') + ' ' +
+               (s.shortDisplayName || '')).toLowerCase();
+    return tag !== '    ' && /expected goals|expectedgoals|\bxg\b/.test(tag);
+  }
+
+  // Find an xG value anywhere inside a team-scoped subtree, regardless of how
+  // ESPN nests it (flat statistics[], grouped statistics[].stats[], etc.).
+  function findXG(node, depth) {
+    if (node == null || depth > 6) return null;
+    if (Array.isArray(node)) {
+      for (var i = 0; i < node.length; i++) {
+        var r = findXG(node[i], depth + 1);
+        if (r != null) return r;
+      }
+      return null;
+    }
+    if (typeof node !== 'object') return null;
+    if (looksLikeXG(node)) {
+      var v = parseFloat(node.displayValue != null ? node.displayValue : node.value);
+      if (!isNaN(v)) return v;
+    }
+    for (var k in node) {
+      if (!Object.prototype.hasOwnProperty.call(node, k)) continue;
+      if (node[k] && typeof node[k] === 'object') {
+        var rr = findXG(node[k], depth + 1);
+        if (rr != null) return rr;
+      }
+    }
+    return null;
+  }
+
+  // Per-team expected goals (xG), if the feed carries it. ESPN's exact key and
+  // nesting are uncertain for the World Cup feed, so search each team's subtree
+  // defensively for a stat that looks like xG. Falls back to the per-competitor
+  // stats on the header. Returns null when nothing usable is found.
   function parseXG(summary, sideById) {
-    var teams = get(summary, ['boxscore', 'teams'], []);
-    if (!teams || !teams.length) return null;
     var out = {}, found = false;
-    teams.forEach(function (t) {
-      var side = sideById[String(get(t, ['team', 'id'], ''))];
+    (get(summary, ['boxscore', 'teams'], []) || []).forEach(function (t) {
+      var side = sideById[String(get(t, ['team', 'id'], ''))] ||
+                 sideById[String(get(t, ['team', 'uid'], ''))];
       if (!side) return;
-      (t.statistics || []).forEach(function (s) {
-        var tag = ((s.name || '') + ' ' + (s.abbreviation || '') + ' ' + (s.label || '') + ' ' + (s.displayName || '')).toLowerCase();
-        if (/expected goals|expectedgoals|\bxg\b/.test(tag)) {
-          var v = parseFloat(s.displayValue != null ? s.displayValue : s.value);
-          if (!isNaN(v)) { out[side] = v; found = true; }
-        }
-      });
+      var v = findXG(t, 0);
+      if (v != null) { out[side] = v; found = true; }
     });
+    if (!found) {
+      (get(summary, ['header', 'competitions', 0, 'competitors'], []) || []).forEach(function (c) {
+        if (!c || !c.homeAway) return;
+        var v = findXG(c.statistics, 0);
+        if (v != null) { out[c.homeAway] = v; found = true; }
+      });
+    }
     return found ? out : null;
   }
 
@@ -216,7 +261,7 @@
      Lives in sessionStorage and clears when the tab closes. */
   // Bump the version whenever the parsed match shape changes, so stale
   // session caches from an older build are discarded rather than reused.
-  var CACHE_KEY = 'wc26-cache-v5';
+  var CACHE_KEY = 'wc26-cache-v6';
   var mem = { scoreboard: {}, summary: {} };
   var ss = (function () { try { return (typeof sessionStorage !== 'undefined') ? sessionStorage : null; } catch (e) { return null; } })();
 
