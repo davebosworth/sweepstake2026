@@ -59,17 +59,19 @@
       root.appendChild(lp);
     }
 
-    // Upcoming fixtures: today's completed games plus the not-yet-started games
-    // for today and tomorrow, in true play order. (In-play games sit in Live Now.)
+    // Matches: yesterday's and today's completed games plus the not-yet-started
+    // games for today and tomorrow, in true play order. (In-play games sit in
+    // Live Now.)
+    var yesterday = WC.ESPN.localDay(new Date(Date.now() - 86400000));
     var today = todayISO();
     var tomorrow = WC.ESPN.localDay(new Date(Date.now() + 86400000));
     var upcoming = st.matches.filter(function (m) {
-      if (m.date === today && m.status === 'ft') return true;
+      if (m.status === 'ft') return m.date === yesterday || m.date === today;
       return m.status === 'scheduled' && (m.date === today || m.date === tomorrow);
     }).sort(byKickoff);
     if (upcoming.length) {
       var up = el('div', { class: 'panel' });
-      up.appendChild(el('h2', null, ['Matches ', el('span', { class: 'sub' }, ['today & tomorrow'])]));
+      up.appendChild(el('h2', null, ['Matches ', el('span', { class: 'sub' }, ['yesterday, today & tomorrow'])]));
       var byDate = {};
       upcoming.forEach(function (m) { (byDate[m.date || 'Undated'] = byDate[m.date || 'Undated'] || []).push(m); });
       Object.keys(byDate).sort().forEach(function (d) {
