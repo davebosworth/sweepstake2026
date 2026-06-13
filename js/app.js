@@ -95,14 +95,14 @@
     var col = el('div', { class: 'two-col' });
 
     var dWrap = el('div', { class: 'panel' });
-    dWrap.appendChild(el('h2', null, ['Disciplinary Prize ', el('span', { class: 'sub' }, ['Red = 3 · Yellow = 1 · most wins'])]));
+    dWrap.appendChild(el('h2', null, ['Disciplinary Prize ', el('span', { class: 'sub' }, ['Red = 3 · Yellow = 1 · most wins · top 5'])]));
     if (st.detailLoading && !disc.length) dWrap.appendChild(el('p', { class: 'empty' }, ['Loading cards from ESPN…']));
     else if (!disc.length) dWrap.appendChild(el('p', { class: 'empty' }, ['No cards recorded yet.']));
     else {
       var dt = el('table', { class: 'tbl' });
       dt.innerHTML = '<thead><tr><th>#</th><th>Team</th><th>Owner</th><th class="r">🟥</th><th class="r">🟨</th><th class="r">Pts</th></tr></thead>';
       var tb = el('tbody');
-      disc.forEach(function (r) {
+      disc.slice(0, 5).forEach(function (r) {
         var tr = el('tr', r.rank === 1 ? { class: 'leader' } : null);
         var team = (r.live ? '<span class="live-dot"></span>' : '') + r.team;
         tr.innerHTML = '<td>' + r.rank + (r.rank === 1 ? ' ★' : '') + '</td><td>' + team + '</td><td class="muted">' + r.owner +
