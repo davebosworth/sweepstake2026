@@ -40,6 +40,38 @@
   }
 
   /* ---- TAB: Dashboard ----------------------------------------------------- */
+  // TEMP DEBUG — dumps the raw ESPN summary fields (predictor / boxscore stats)
+  // for one finished and one scheduled match so we can confirm xG/predictor
+  // field names from a phone (screenshot it). Remove once verified.
+  function debugEspnPanel(st) {
+    var panel = el('div', { class: 'panel', style: 'border-color:var(--gold)' });
+    panel.appendChild(el('h2', null, ['ESPN DEBUG (temporary)']));
+    var pre = el('pre', { style: 'white-space:pre-wrap;word-break:break-word;font-size:11px;line-height:1.5;color:#cfe;max-height:70vh;overflow:auto;margin:0' });
+    pre.textContent = 'loading ESPN summaries…';
+    panel.appendChild(pre);
+    var fin = st.matches.filter(function (m) { return m.status === 'ft' || m.status === 'live'; })[0];
+    var sched = st.matches.filter(function (m) { return m.status === 'scheduled'; })[0];
+    function dump(tag, m) {
+      if (!m) return Promise.resolve(tag + ': (no match)\n');
+      return fetch(WC.ESPN.BASE + '/summary?event=' + m._espnId)
+        .then(function (r) { return r.json(); })
+        .then(function (s) {
+          var out = '=== ' + tag + ': ' + m.home + ' v ' + m.away + ' (' + m._espnId + ') ===\n';
+          out += 'top keys: ' + Object.keys(s).join(', ') + '\n';
+          out += 'predictor: ' + JSON.stringify(s.predictor) + '\n';
+          var bt = (s.boxscore && s.boxscore.teams) || [];
+          out += 'boxscore.teams: ' + bt.length + '\n';
+          bt.forEach(function (t, i) {
+            out += 'team' + i + ' stats: ' + ((t.statistics || []).map(function (x) { return x.name + '/' + (x.abbreviation || '') + '=' + x.displayValue; }).join(' | ')) + '\n';
+          });
+          return out + '\n';
+        })['catch'](function (e) { return tag + ' ERROR: ' + e.message + '\n'; });
+    }
+    Promise.all([dump('FINISHED/LIVE', fin), dump('SCHEDULED', sched)])
+      .then(function (parts) { pre.textContent = parts.join('\n'); });
+    return panel;
+  }
+
   function renderDashboard() {
     var st = Live.get();
     var disc = S.disciplinary(st);
@@ -48,7 +80,9 @@
     var played = Object.keys(teams).filter(function (k) { return teams[k].played; }).length;
     var finished = st.matches.filter(S.isFinished).length;
 
+
     var root = el('div');
+    root.appendChild(debugEspnPanel(st));   // TEMP DEBUG — remove after verifying ESPN fields
 
     var liveNow = st.matches.filter(function (m) { return m.status === 'live'; }).sort(byKickoff);
     if (liveNow.length) {
