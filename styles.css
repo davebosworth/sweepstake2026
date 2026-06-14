@@ -159,6 +159,7 @@ body {
 .mr-score { padding: 0 6px; }
 /* emoji flag (Twemoji SVG) shown inline next to team names */
 .flag { height: 1.15em; width: 1.15em; vertical-align: -0.18em; margin-right: 6px; flex: none; }
+.flag-r { margin-right: 0; margin-left: 6px; }
 .tbl .flag { margin-right: 7px; }
 .mr-score.fin { color: var(--gold); font-weight: bold; }
 .mr-score.sched { color: var(--muted); }

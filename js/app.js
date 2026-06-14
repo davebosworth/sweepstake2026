@@ -23,9 +23,9 @@
   }
 
   // Inline emoji flag <img> for a team, or null when unknown (safe as an el child).
-  function flagEl(team) {
+  function flagEl(team, cls) {
     var src = WC.flagSrc(team);
-    return src ? el('img', { class: 'flag', src: src, alt: '' }) : null;
+    return src ? el('img', { class: 'flag' + (cls ? ' ' + cls : ''), src: src, alt: '' }) : null;
   }
 
   var activeTab = 'dashboard';
@@ -509,7 +509,7 @@
       el('span', { class: 'mr-teams' }, [
         flagEl(m.home), el('b', null, [m.home || '?']), ' ',
         el('span', { class: 'mr-score ' + (fin ? 'fin' : (live ? 'livescore' : 'sched')) }, [score]), ' ',
-        flagEl(m.away), el('b', null, [m.away || '?'])
+        el('b', null, [m.away || '?']), flagEl(m.away, 'flag-r')
       ]),
       el('span', { class: 'mr-owners muted' }, [WC.ownerOf(m.home) + ' v ' + WC.ownerOf(m.away)])
     ]);
