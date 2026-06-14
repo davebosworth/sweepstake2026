@@ -120,7 +120,7 @@
     col.appendChild(dWrap);
 
     var wWrap = el('div', { class: 'panel' });
-    wWrap.appendChild(el('h2', null, ['Worst Teams ', el('span', { class: 'sub' }, [st.earlyFilter ? 'early filter on (0 pts, −GD)' : 'full table'])]));
+    wWrap.appendChild(el('h2', null, ['Worst Teams']));
     if (!worst.length) wWrap.appendChild(el('p', { class: 'empty' }, ['No qualifying teams yet.']));
     else {
       var wt = el('table', { class: 'tbl' });
@@ -734,38 +734,6 @@
 
   /* ---- Odds (The Odds API) ------------------------------------------------ */
   var oddsState = { status: 'idle', rows: [], error: null, updatedAt: null };
-  var marketState = { status: 'idle', list: [], error: null };
-
-  function discoverMarkets() {
-    marketState.status = 'loading'; render();
-    WC.Odds.listMarkets().then(function (list) {
-      marketState.list = list; marketState.status = 'ok'; render();
-    }).catch(function (e) {
-      marketState.status = 'error'; marketState.error = (e && e.message) || 'failed'; render();
-    });
-  }
-
-  function marketsBlock() {
-    if (marketState.status === 'idle') return el('span');
-    var box = el('div', { class: 'markets' });
-    if (marketState.status === 'loading') { box.appendChild(el('p', { class: 'muted small' }, ['Looking up markets…'])); return box; }
-    if (marketState.status === 'error') { box.appendChild(el('p', { class: 'small red' }, ['Market lookup failed — ' + marketState.error])); return box; }
-    if (!marketState.list.length) {
-      box.appendChild(el('p', { class: 'muted small' }, ['No World Cup outright markets found on this key — the winner market is usually soccer_fifa_world_cup_winner, and a runner-up market may simply not be offered.']));
-      return box;
-    }
-    box.appendChild(el('div', { class: 'td-label' }, ['World Cup markets on your key']));
-    marketState.list.forEach(function (s) {
-      box.appendChild(el('div', { class: 'market-row' }, [
-        el('code', null, [s.key]),
-        el('span', { class: 'muted small' }, [' ' + (s.title || '')]),
-        el('button', { class: 'btn small', onclick: function () { WC.Odds.setConfig({ winnerKey: s.key }); render(); } }, ['Use as winner']),
-        el('button', { class: 'btn small', onclick: function () { WC.Odds.setConfig({ runnerUpKey: s.key }); render(); } }, ['Use as runner-up'])
-      ]));
-    });
-    return box;
-  }
-
   function loadOdds() {
     var cfg = WC.Odds.getConfig();
     if (!cfg.apiKey) { oddsState.status = 'nokey'; render(); return; }
@@ -779,39 +747,11 @@
 
   function renderOdds() {
     var cfg = WC.Odds.getConfig();
-    var oddsSharedKey = !!(window.WC_CONFIG && window.WC_CONFIG.apiKey);
     var root = el('div');
-
-    // --- settings ---
-    var draft = { apiKey: cfg.apiKey, region: cfg.region, winnerKey: cfg.winnerKey, runnerUpKey: cfg.runnerUpKey };
-    var keyInput = el('input', { type: 'password', value: cfg.apiKey, placeholder: 'paste your the-odds-api.com key' });
-    keyInput.addEventListener('input', function () { draft.apiKey = keyInput.value.trim(); });
-    var regionSel = el('select', { html: ['uk', 'eu', 'us', 'au'].map(function (r) { return '<option value="' + r + '"' + (r === cfg.region ? ' selected' : '') + '>' + r.toUpperCase() + '</option>'; }).join('') });
-    regionSel.addEventListener('change', function () { draft.region = regionSel.value; });
-
-    var settings = el('div', { class: 'panel' }, [
-      el('h2', null, ['Odds settings']),
-      el('p', { class: 'muted small' }, [oddsSharedKey
-        ? 'Using the shared key from config.js. Anything you type here applies to this browser only and is overridden by the shared config on reload.'
-        : ['Free key from ', el('b', null, ['the-odds-api.com']), '. Stored only in this browser. To share with friends, commit it in ', el('code', null, ['js/config.js']), ' instead.']]),
-      el('div', { class: 'odds-cfg' }, [
-        field('API key', keyInput),
-        field('Region', regionSel),
-        field('Winner market key', textInput(cfg.winnerKey, 'soccer_fifa_world_cup_winner', function (v) { draft.winnerKey = v.trim(); })),
-        field('Runner-up market key (optional)', textInput(cfg.runnerUpKey, 'leave blank if unknown', function (v) { draft.runnerUpKey = v.trim(); }))
-      ]),
-      el('div', { class: 'report-btns', style: 'flex-direction:row;flex-wrap:wrap' }, [
-        el('button', { class: 'btn primary', onclick: function () { WC.Odds.setConfig(draft); loadOdds(); } }, ['Save & load odds']),
-        el('button', { class: 'btn', onclick: loadOdds }, ['↻ Refresh']),
-        el('button', { class: 'btn', onclick: function () { WC.Odds.setConfig(draft); discoverMarkets(); } }, ['🔍 Find World Cup markets'])
-      ]),
-      marketsBlock()
-    ]);
-    root.appendChild(settings);
 
     // --- status / table ---
     if (oddsState.status === 'nokey' || (oddsState.status === 'idle' && !cfg.apiKey)) {
-      root.appendChild(el('p', { class: 'empty big' }, ['Enter an API key above to load tournament-winner odds for all 48 teams.']));
+      root.appendChild(el('p', { class: 'empty big' }, ['Tournament-winner odds aren’t available right now.']));
       return root;
     }
     if (oddsState.status === 'loading') { root.appendChild(loadingBlock('Loading odds…')); return root; }
@@ -820,7 +760,7 @@
       root.appendChild(el('p', { class: 'muted small', style: 'text-align:center' }, ['If this is a CORS error, the browser is blocked from calling the API directly and a small proxy is needed.']));
       return root;
     }
-    if (oddsState.status !== 'ok') { root.appendChild(el('p', { class: 'empty big' }, ['Click “Save & load odds”.'])); return root; }
+    if (oddsState.status !== 'ok') { root.appendChild(loadingBlock('Loading odds…')); return root; }
 
     var rows = oddsState.rows.slice().sort(function (a, b) {
       if (a.winnerOdds == null && b.winnerOdds == null) return a.team.localeCompare(b.team);
