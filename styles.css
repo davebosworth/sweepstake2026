@@ -144,18 +144,16 @@ body {
 
 /* live indicators */
 .live-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--red); margin-right: 6px; vertical-align: middle; animation: pulse 1.2s infinite; flex: none; }
-.tag.live { color: var(--red); font-weight: bold; display: inline-flex; align-items: center; }
 .mr-score.livescore { color: var(--red); font-weight: bold; }
 .status.live .dot { background: var(--red); animation: pulse 1.2s infinite; }
 .live-panel { border: 1px solid rgba(232, 80, 58, 0.4); }
 .live-panel h2 .live-dot { width: 10px; height: 10px; }
 .tbl tr.liverow td { background: rgba(232, 80, 58, 0.07); }
 .tbl td .live-dot { width: 7px; height: 7px; margin-right: 6px; }
-.match-head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 12px 16px; }
+.match-head { display: flex; flex-direction: column; gap: 6px; padding: 12px 16px; }
 .match.expandable .match-head { cursor: pointer; }
 .match.expandable .match-head:hover { background: rgba(255,255,255,0.03); }
-.tag { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; min-width: 70px; }
-.mr-teams { font-size: 15px; }
+.mr-teams { font-size: 15px; text-align: center; }
 .mr-score { padding: 0 6px; }
 /* emoji flag (Twemoji SVG) shown inline next to team names */
 .flag { height: 1.15em; width: 1.15em; vertical-align: -0.18em; margin-right: 6px; flex: none; }
@@ -163,8 +161,10 @@ body {
 .tbl .flag { margin-right: 7px; }
 .mr-score.fin { color: var(--gold); font-weight: bold; }
 .mr-score.sched { color: var(--muted); }
-.mr-owners { font-size: 12px; display: flex; align-items: baseline; gap: 10px; flex: 1 1 auto; }
-.mr-group { margin-left: auto; text-transform: uppercase; letter-spacing: 1px; font-size: 11px; white-space: nowrap; }
+.mr-meta { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 12px; }
+.mr-group { text-transform: uppercase; letter-spacing: 1px; font-size: 11px; white-space: nowrap; }
+.mr-foot { display: flex; align-items: center; gap: 12px; }
+.mr-live { color: var(--red); font-weight: bold; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; }
 .mr-cards { color: var(--red); font-size: 12px; }
 .chevron { margin-left: auto; color: var(--muted); font-size: 13px; transition: transform 0.15s; }
 .match.open .chevron { transform: rotate(180deg); }
@@ -258,10 +258,8 @@ input:focus, select:focus { outline: none; border-color: var(--green); }
   .stat { padding: 14px; }
   .stat-v { font-size: 20px; }
 
-  .match-head { gap: 8px 10px; padding: 11px 13px; }
-  .tag { min-width: 56px; }
+  .match-head { padding: 11px 13px; }
   .mr-teams { font-size: 14px; }
-  .mr-owners { width: 100%; }
 
   .report-controls { position: static; }
   .preview { padding: 10px; }

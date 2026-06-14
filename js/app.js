@@ -501,23 +501,30 @@
     var fin = S.isFinished(m);
     var live = m.status === 'live' && m.homeScore != null;
     var score = (fin || live) ? (m.homeScore + ' – ' + m.awayScore) : (m.kickoff ? m.kickoff + ' UK' : '—');
-    var tag = live
-      ? el('span', { class: 'tag live' }, [el('span', { class: 'live-dot' }), m.clock || m.statusDetail || 'LIVE'])
-      : null;   // group now shown on the owners line (right-aligned)
-    var head = el('div', { class: 'match-head' }, [
-      tag,
-      el('span', { class: 'mr-teams' }, [
-        flagEl(m.home), el('b', null, [m.home || '?']), ' ',
-        el('span', { class: 'mr-score ' + (fin ? 'fin' : (live ? 'livescore' : 'sched')) }, [score]), ' ',
-        el('b', null, [m.away || '?']), flagEl(m.away, 'flag-r')
-      ]),
-      el('span', { class: 'mr-owners muted' }, [
-        el('span', null, [WC.ownerOf(m.home) + ' v ' + WC.ownerOf(m.away)]),
-        (m.group ? el('span', { class: 'mr-group' }, [m.group]) : null)
-      ])
+
+    // Row 1: centred team names + score. Row 2: owners (left) + group (right).
+    var teamLine = el('div', { class: 'mr-teams' }, [
+      flagEl(m.home), el('b', null, [m.home || '?']), ' ',
+      el('span', { class: 'mr-score ' + (fin ? 'fin' : (live ? 'livescore' : 'sched')) }, [score]), ' ',
+      el('b', null, [m.away || '?']), flagEl(m.away, 'flag-r')
     ]);
+    var metaLine = el('div', { class: 'mr-meta muted' }, [
+      el('span', null, [WC.ownerOf(m.home) + ' v ' + WC.ownerOf(m.away)]),
+      (m.group ? el('span', { class: 'mr-group' }, [m.group]) : null)
+    ]);
+    var head = el('div', { class: 'match-head' }, [teamLine, metaLine]);
+
+    // Row 3 (only when there's something to show): live clock / card count, plus
+    // the expand chevron on the right.
     var cardCount = (m.cards || []).length;
-    if (cardCount) head.appendChild(el('span', { class: 'mr-cards' }, [cardCount + ' card' + (cardCount === 1 ? '' : 's')]));
+    var footBits = [];
+    if (live) footBits.push(el('span', { class: 'mr-live' }, [el('span', { class: 'live-dot' }), m.clock || m.statusDetail || 'LIVE']));
+    if (cardCount) footBits.push(el('span', { class: 'mr-cards' }, [cardCount + ' card' + (cardCount === 1 ? '' : 's')]));
+    if (footBits.length || fin || live) {
+      var foot = el('div', { class: 'mr-foot' }, footBits);
+      if (fin || live) foot.appendChild(el('span', { class: 'chevron' }, ['▾']));
+      head.appendChild(foot);
+    }
 
     var matchEl = el('div', { class: 'match ' + (fin ? 'is-ft' : (live ? 'is-live' : 'is-sched')) }, [head]);
 
@@ -529,7 +536,6 @@
     // Finished and in-play matches expand to show goalscorers and cards.
     if (fin || live) {
       matchEl.classList.add('expandable');
-      head.appendChild(el('span', { class: 'chevron' }, ['▾']));
       matchEl.appendChild(el('div', { class: 'match-details' }, [teamDetail('home', m), teamDetail('away', m)]));
       head.addEventListener('click', function () { matchEl.classList.toggle('open'); });
     }

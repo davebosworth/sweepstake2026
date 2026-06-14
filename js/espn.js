@@ -303,9 +303,37 @@
       .catch(function () { return match; }); // detail is best-effort
   }
 
+  // The scoreboard rarely labels a match's group, but the standings endpoint
+  // lists each group with its teams. Fetch it once and build a team -> "Group X"
+  // map so group-stage matches can be labelled by their teams. Knockout teams
+  // aren't in the group tables, so those matches simply get no label. Defensive
+  // about the payload shape; resolves to {} on any failure.
+  var STANDINGS = 'https://site.api.espn.com/apis/v2/sports/soccer/fifa.world/standings';
+  function fetchGroups() {
+    return fetchJSON(STANDINGS).then(function (data) {
+      var map = {};
+      var groups = data.children || get(data, ['standings', 'groups'], []) || [];
+      (groups || []).forEach(function (g) {
+        var nm = g.name || g.displayName || g.abbreviation || '';
+        var gm = /group\s+([a-l])\b/i.exec(nm);
+        if (!gm) return;
+        var label = 'Group ' + gm[1].toUpperCase();
+        var entries = get(g, ['standings', 'entries'], []) || g.entries || [];
+        entries.forEach(function (e) {
+          var raw = get(e, ['team', 'displayName']) || get(e, ['team', 'name']) ||
+                    get(e, ['team', 'shortDisplayName']) || get(e, ['team', 'location']) || '';
+          var team = mapTeam(raw);
+          if (team) map[team] = label;
+        });
+      });
+      return map;
+    })['catch'](function () { return {}; });
+  }
+
   WC.ESPN = {
     fetchScoreboard: fetchScoreboard,
     fetchDetails: fetchDetails,
+    fetchGroups: fetchGroups,
     mapTeam: mapTeam,
     localDay: localDay,
     BASE: BASE

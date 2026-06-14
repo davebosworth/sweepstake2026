@@ -50,20 +50,30 @@
     });
   }
 
+  // team -> "Group X", from the standings endpoint; used to label matches whose
+  // own scoreboard entry has no group. Fetched once on load.
+  var groupMap = {};
+  function applyGroup(m) {
+    if (m && !m.group) { var g = groupMap[m.home] || groupMap[m.away]; if (g) m.group = g; }
+  }
+
   function load() {
     state.loading = true; state.error = null; state.matches = []; state.updatedAt = null; emit();
 
     var collected = [], dropped = 0;
-    return pool(allDates(), function (d) {
+    var groupsP = WC.ESPN.fetchGroups().then(function (gm) { groupMap = gm || {}; }, function () {});
+    var scoreP = pool(allDates(), function (d) {
       return WC.ESPN.fetchScoreboard(d).then(function (list) {
         list.forEach(function (m) {
           if (m.home && m.away) collected.push(m); else dropped++;
         });
       });
-    }, 6).then(function () {
+    }, 6);
+    return Promise.all([groupsP, scoreP]).then(function () {
       // de-dupe by ESPN id (a match can surface on adjacent days)
       var seen = {}, uniq = [];
       collected.forEach(function (m) { if (!seen[m._espnId]) { seen[m._espnId] = 1; uniq.push(m); } });
+      uniq.forEach(applyGroup);
 
       var finished = uniq.filter(function (m) { return m.status === 'ft'; });
       // Details (scorers/cards/xg) for finished + in-play matches, plus the
@@ -140,6 +150,7 @@
         list.forEach(function (m) { if (m.home && m.away) updated.push(m); });
       });
     }, 3).then(function () {
+      updated.forEach(applyGroup);
       var idx = {};
       state.matches.forEach(function (m, i) { idx[m._espnId] = i; });
       updated.forEach(function (m) {
