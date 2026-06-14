@@ -233,7 +233,7 @@
       var ry = y + headH + i * rowH;
       if (i % 2 === 1) parts.push(rect(M + 12, ry, CW - 24, rowH, { rx: 10, fill: '#0d3225' }));
       var ty = ry + 40;
-      parts.push(text(cRank, ty, r.rank, { fill: T.gold, size: 26, weight: 'bold' }));
+      parts.push(text(cRank, ty, r.rank + (i === 0 ? ' ★' : ''), { fill: T.gold, size: 26, weight: 'bold' }));
       parts.push(text(cTeam, ty, r.team, { fill: T.white, size: 26, weight: 'bold' }));
       parts.push(text(cOwner, ty, r.owner, { fill: T.muted, size: 24 }));
       parts.push(text(cPts, ty, r.Pts, { fill: T.white, size: 26, weight: 'bold', anchor: 'end' }));
@@ -277,11 +277,10 @@
     rows.forEach(function (r, i) {
       var ry = y + headH + i * rowH;
       var leading = i === 0;
-      if (leading) parts.push(rect(M + 12, ry + 4, CW - 24, rowH - 8, { rx: 12, fill: 'none', stroke: T.gold, sw: 3 }));
-      else if (i % 2 === 1) parts.push(rect(M + 12, ry, CW - 24, rowH, { rx: 10, fill: '#0d3225' }));
+      if (i % 2 === 1) parts.push(rect(M + 12, ry, CW - 24, rowH, { rx: 10, fill: '#0d3225' }));
 
       var ty = ry + 42;
-      parts.push(text(cRank, ty, r.rank, { fill: T.gold, size: 26, weight: 'bold' }));
+      parts.push(text(cRank, ty, r.rank + (leading ? ' ★' : ''), { fill: T.gold, size: 26, weight: 'bold' }));
       parts.push(text(cTeam, ty, r.team, { fill: T.white, size: 26, weight: 'bold' }));
       parts.push(text(cOwner, ty, r.owner, { fill: leading ? T.gold : T.muted, size: 24, weight: leading ? 'bold' : 'normal' }));
 
@@ -290,8 +289,6 @@
       chip(parts, cx, ty - 6, r.yellow, T.yellow, '#2a2206');
 
       parts.push(text(cTotal, ty, r.cardPoints, { fill: T.gold, size: 28, weight: 'bold', anchor: 'end' }));
-
-      if (leading) parts.push(text(cTotal, ry + rowH - 6, '★ LEADING', { fill: T.gold, size: 16, weight: 'bold', anchor: 'end', spacing: 1 }));
     });
     return y + h;
   }
