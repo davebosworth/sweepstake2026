@@ -503,7 +503,7 @@
     var score = (fin || live) ? (m.homeScore + ' – ' + m.awayScore) : (m.kickoff ? m.kickoff + ' UK' : '—');
     var tag = live
       ? el('span', { class: 'tag live' }, [el('span', { class: 'live-dot' }), m.clock || m.statusDetail || 'LIVE'])
-      : el('span', { class: 'tag' }, [m.group || '—']);
+      : null;   // group now shown on the owners line (right-aligned)
     var head = el('div', { class: 'match-head' }, [
       tag,
       el('span', { class: 'mr-teams' }, [
@@ -511,7 +511,10 @@
         el('span', { class: 'mr-score ' + (fin ? 'fin' : (live ? 'livescore' : 'sched')) }, [score]), ' ',
         el('b', null, [m.away || '?']), flagEl(m.away, 'flag-r')
       ]),
-      el('span', { class: 'mr-owners muted' }, [WC.ownerOf(m.home) + ' v ' + WC.ownerOf(m.away)])
+      el('span', { class: 'mr-owners muted' }, [
+        el('span', null, [WC.ownerOf(m.home) + ' v ' + WC.ownerOf(m.away)]),
+        (m.group ? el('span', { class: 'mr-group' }, [m.group]) : null)
+      ])
     ]);
     var cardCount = (m.cards || []).length;
     if (cardCount) head.appendChild(el('span', { class: 'mr-cards' }, [cardCount + ' card' + (cardCount === 1 ? '' : 's')]));

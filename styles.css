@@ -163,7 +163,8 @@ body {
 .tbl .flag { margin-right: 7px; }
 .mr-score.fin { color: var(--gold); font-weight: bold; }
 .mr-score.sched { color: var(--muted); }
-.mr-owners { font-size: 12px; }
+.mr-owners { font-size: 12px; display: flex; align-items: baseline; gap: 10px; flex: 1 1 auto; }
+.mr-group { margin-left: auto; text-transform: uppercase; letter-spacing: 1px; font-size: 11px; white-space: nowrap; }
 .mr-cards { color: var(--red); font-size: 12px; }
 .chevron { margin-left: auto; color: var(--muted); font-size: 13px; transition: transform 0.15s; }
 .match.open .chevron { transform: rotate(180deg); }
