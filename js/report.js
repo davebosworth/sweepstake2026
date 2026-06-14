@@ -14,6 +14,7 @@
   var M = 60;            // outer margin
   var PAD = 40;          // inner card padding
   var CW = W - 2 * M;    // content width
+  var _uid = 0;          // unique id source for per-bar SVG clip paths
 
   /* ---- tiny SVG helpers ---------------------------------------------------- */
   function esc(s) {
@@ -145,9 +146,27 @@
     return y + h;
   }
 
+  // A stacked home/draw/away win-probability bar (odds-implied), clipped to
+  // rounded ends. Widths are proportional; null shares count as zero.
+  function predictorBar(parts, x, y, w, p) {
+    function pv(v) { return v == null ? 0 : Math.max(0, v); }
+    var ph = pv(p.home), pd = pv(p.draw), pa = pv(p.away), sum = ph + pd + pa;
+    if (sum <= 0) return;
+    var barH = 18, id = 'predclip' + (++_uid);
+    var wh = w * ph / sum, wd = w * pd / sum, wa = w - wh - wd;
+    parts.push('<clipPath id="' + id + '"><rect ' + attrs({ x: x, y: y, width: w, height: barH, rx: 9, ry: 9 }) + '/></clipPath>');
+    parts.push('<g clip-path="url(#' + id + ')">');
+    parts.push(rect(x, y, w, barH, { fill: '#0d3225' }));
+    parts.push(rect(x, y, wh, barH, { fill: T.green }));
+    parts.push(rect(x + wh, y, wd, barH, { fill: T.muted }));
+    parts.push(rect(x + wh + wd, y, wa, barH, { fill: T.gold }));
+    parts.push('</g>');
+  }
+
   // An upcoming-fixture card. Returns the new cursor y.
   function fixtureCard(parts, y, m) {
-    var h = 168;
+    var p = m.predictor, hasPred = !!(p && (p.home != null || p.away != null));
+    var h = hasPred ? 256 : 168;
     card(parts, y, h);
     var lx = M + PAD, rx = M + CW - PAD, cx = W / 2;
     var cy = y + 40;
@@ -163,6 +182,18 @@
     var oy = ty + 32;
     parts.push(text(lx, oy, WC.ownerOf(m.home), { fill: T.muted, size: 24, weight: 'bold' }));
     parts.push(text(rx, oy, WC.ownerOf(m.away), { fill: T.muted, size: 24, weight: 'bold', anchor: 'end' }));
+
+    if (hasPred) {
+      function pr(v) { return Math.round(v == null ? 0 : v); }
+      var capY = oy + 44;
+      parts.push(text(lx, capY, 'PREDICTED RESULT', { fill: T.green, size: 18, weight: 'bold', spacing: 2 }));
+      var barY = capY + 16;
+      predictorBar(parts, lx, barY, CW - 2 * PAD, p);
+      var labY = barY + 18 + 28;
+      parts.push(text(lx, labY, m.home + ' ' + pr(p.home) + '%', { fill: T.green, size: 22, weight: 'bold' }));
+      parts.push(text(cx, labY, 'Draw ' + pr(p.draw) + '%', { fill: T.muted, size: 22, anchor: 'middle' }));
+      parts.push(text(rx, labY, pr(p.away) + '% ' + m.away, { fill: T.gold, size: 22, weight: 'bold', anchor: 'end' }));
+    }
 
     return y + h;
   }
