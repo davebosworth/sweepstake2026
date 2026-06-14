@@ -127,10 +127,10 @@
       wt.innerHTML = '<thead><tr><th>#</th><th>Team</th><th>Owner</th><th class="r">Pts</th><th class="r">GD</th></tr></thead>';
       var wb = el('tbody');
       worst.forEach(function (r) {
-        var tr = el('tr', r.live ? { class: 'liverow' } : null);
+        var tr = el('tr', { class: (r.rank === 1 ? 'leader' : '') + (r.live ? ' liverow' : '') });
         var gd = (r.GD > 0 ? '+' : '') + r.GD;
         var team = WC.flagHTML(r.team) + (r.live ? '<span class="live-dot"></span>' : '') + r.team;
-        tr.innerHTML = '<td>' + r.rank + '</td><td>' + team + '</td><td class="muted">' + r.owner +
+        tr.innerHTML = '<td>' + r.rank + (r.rank === 1 ? ' ★' : '') + '</td><td>' + team + '</td><td class="muted">' + r.owner +
           '</td><td class="r b">' + r.Pts + '</td><td class="r ' + (r.GD < 0 ? 'red' : '') + '">' + gd + '</td>';
         wb.appendChild(tr);
       });
