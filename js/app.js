@@ -22,6 +22,12 @@
     return n;
   }
 
+  // Inline emoji flag <img> for a team, or null when unknown (safe as an el child).
+  function flagEl(team) {
+    var src = WC.flagSrc(team);
+    return src ? el('img', { class: 'flag', src: src, alt: '' }) : null;
+  }
+
   var activeTab = 'dashboard';
 
   /* ---- shared date helpers ------------------------------------------------ */
@@ -104,7 +110,7 @@
       var tb = el('tbody');
       disc.slice(0, 5).forEach(function (r) {
         var tr = el('tr', r.rank === 1 ? { class: 'leader' } : null);
-        var team = (r.live ? '<span class="live-dot"></span>' : '') + r.team;
+        var team = WC.flagHTML(r.team) + (r.live ? '<span class="live-dot"></span>' : '') + r.team;
         tr.innerHTML = '<td>' + r.rank + (r.rank === 1 ? ' ★' : '') + '</td><td>' + team + '</td><td class="muted">' + r.owner +
           '</td><td class="r">' + r.red + '</td><td class="r">' + r.yellow + '</td><td class="r b gold">' + r.cardPoints + '</td>';
         tb.appendChild(tr);
@@ -123,7 +129,7 @@
       worst.forEach(function (r) {
         var tr = el('tr', r.live ? { class: 'liverow' } : null);
         var gd = (r.GD > 0 ? '+' : '') + r.GD;
-        var team = (r.live ? '<span class="live-dot"></span>' : '') + r.team;
+        var team = WC.flagHTML(r.team) + (r.live ? '<span class="live-dot"></span>' : '') + r.team;
         tr.innerHTML = '<td>' + r.rank + '</td><td>' + team + '</td><td class="muted">' + r.owner +
           '</td><td class="r b">' + r.Pts + '</td><td class="r ' + (r.GD < 0 ? 'red' : '') + '">' + gd + '</td>';
         wb.appendChild(tr);
@@ -166,7 +172,7 @@
     var tb = el('tbody');
     top.forEach(function (r, i) {
       var tr = el('tr', i === 0 ? { class: 'leader' } : null);
-      tr.innerHTML = '<td>' + (i + 1) + (i === 0 ? ' ★' : '') + '</td><td>' + r.team + '</td><td class="muted">' + r.owner +
+      tr.innerHTML = '<td>' + (i + 1) + (i === 0 ? ' ★' : '') + '</td><td>' + WC.flagHTML(r.team) + r.team + '</td><td class="muted">' + r.owner +
         '</td><td class="r b gold">' + fmtPct(r.winnerProb) + '</td><td class="r">' + fmtOdds(r.winnerOdds) + '</td>';
       tb.appendChild(tr);
     });
@@ -218,7 +224,7 @@
     preds.forEach(function (p) {
       var tr = el('tr', { class: (p.excluded ? 'muted' : (p.amount === 80 ? 'leader' : '')) });
       tr.innerHTML = '<td><b>' + p.prize + '</b></td>' +
-        '<td>' + (p.live ? '<span class="live-dot"></span>' : '') + (p.team || '<span class="muted">—</span>') + '</td>' +
+        '<td>' + (p.live ? '<span class="live-dot"></span>' : '') + (p.team ? WC.flagHTML(p.team) + p.team : '<span class="muted">—</span>') + '</td>' +
         '<td class="' + (p.owner ? 'b' : 'muted') + '">' + (p.owner || '—') + '</td>' +
         '<td class="r b ' + (p.excluded ? 'muted' : 'gold') + '">£' + p.amount + '</td>';
       tb.appendChild(tr);
@@ -318,7 +324,7 @@
       var tbb = el('tbody');
       s.teams.forEach(function (tm) {
         var tr = el('tr');
-        tr.innerHTML = '<td>' + tm.team + '</td><td class="r">' + fmtOdds(tm.odds) + '</td><td class="r muted">' + fmtPct(tm.prob) + '</td>';
+        tr.innerHTML = '<td>' + WC.flagHTML(tm.team) + tm.team + '</td><td class="r">' + fmtOdds(tm.odds) + '</td><td class="r muted">' + fmtPct(tm.prob) + '</td>';
         tbb.appendChild(tr);
       });
       tt.appendChild(tbb); det.appendChild(tt);
@@ -379,7 +385,7 @@
       var tb = el('tbody');
       gb.forEach(function (r, i) {
         var tr = el('tr', i === 0 ? { class: 'leader' } : null);
-        tr.innerHTML = '<td>' + (i + 1) + (i === 0 ? ' ★' : '') + '</td><td class="b">' + r.player + '</td><td>' + r.team +
+        tr.innerHTML = '<td>' + (i + 1) + (i === 0 ? ' ★' : '') + '</td><td class="b">' + r.player + '</td><td>' + WC.flagHTML(r.team) + r.team +
           '</td><td class="muted">' + r.owner + '</td><td class="r b gold">' + r.goals + '</td><td class="r muted">' + (r.pens || '') + '</td>';
         tb.appendChild(tr);
       });
@@ -407,7 +413,7 @@
       var gd = (r.GD > 0 ? '+' : '') + r.GD;
       var dv = r.divergence == null ? '<span class="muted">—</span>'
         : '<span class="' + (r.divergence >= 0 ? 'green' : 'red') + '">' + (r.divergence >= 0 ? '+' : '−') + Math.round(Math.abs(r.divergence) * 100) + '</span>';
-      tr.innerHTML = '<td>' + (i + 1) + '</td><td class="b">' + r.team + '</td><td class="muted">' + r.owner +
+      tr.innerHTML = '<td>' + (i + 1) + '</td><td class="b">' + WC.flagHTML(r.team) + r.team + '</td><td class="muted">' + r.owner +
         '</td><td class="r b gold">' + Math.round(r.power * 100) + '</td><td class="r">' + r.P + '</td><td class="r">' + r.Pts +
         '</td><td class="r">' + gd + '</td><td class="r">' + dv + '</td>';
       ptb.appendChild(tr);
@@ -435,7 +441,7 @@
         box.appendChild(el('h2', null, [title]));
         rows.forEach(function (r) {
           box.appendChild(el('div', { class: 'surprise-row' }, [
-            el('span', { class: 'b' }, [r.team]), el('span', { class: 'muted' }, [' · ' + r.owner]),
+            el('span', { class: 'b' }, [flagEl(r.team), r.team]), el('span', { class: 'muted' }, [' · ' + r.owner]),
             el('span', { class: cls }, [(r.divergence >= 0 ? '+' : '−') + Math.round(Math.abs(r.divergence) * 100)])
           ]));
         });
@@ -501,9 +507,9 @@
     var head = el('div', { class: 'match-head' }, [
       tag,
       el('span', { class: 'mr-teams' }, [
-        el('b', null, [m.home || '?']), ' ',
+        flagEl(m.home), el('b', null, [m.home || '?']), ' ',
         el('span', { class: 'mr-score ' + (fin ? 'fin' : (live ? 'livescore' : 'sched')) }, [score]), ' ',
-        el('b', null, [m.away || '?'])
+        flagEl(m.away), el('b', null, [m.away || '?'])
       ]),
       el('span', { class: 'mr-owners muted' }, [WC.ownerOf(m.home) + ' v ' + WC.ownerOf(m.away)])
     ]);
@@ -549,7 +555,7 @@
     var cards = (m.cards || []).filter(function (c) { return c.team === side; });
 
     var col = el('div', { class: 'td-col' }, [
-      el('div', { class: 'td-team' }, [team || '?', el('span', { class: 'muted' }, [' · ' + WC.ownerOf(team)])])
+      el('div', { class: 'td-team' }, [flagEl(team), team || '?', el('span', { class: 'muted' }, [' · ' + WC.ownerOf(team)])])
     ]);
 
     var goals = el('div', { class: 'td-block' }, [el('div', { class: 'td-label' }, ['Goals'])]);
@@ -577,7 +583,7 @@
     rows.forEach(function (r) {
       var gd = (r.GD > 0 ? '+' : '') + r.GD;
       var tr = el('tr', r.live ? { class: 'liverow' } : null);
-      var team = (r.live ? '<span class="live-dot"></span>' : '') + r.team;
+      var team = WC.flagHTML(r.team) + (r.live ? '<span class="live-dot"></span>' : '') + r.team;
       tr.innerHTML = '<td>' + r.pos + '</td><td>' + team + '</td><td class="muted">' + r.owner + '</td><td class="r">' + r.P + '</td><td class="r">' + r.W + '</td><td class="r">' + r.D + '</td><td class="r">' + r.L + '</td><td class="r">' + r.GF + '</td><td class="r">' + r.GA + '</td><td class="r">' + gd + '</td><td class="r b">' + r.Pts + '</td>';
       tb.appendChild(tr);
     });
@@ -616,7 +622,7 @@
     var tb = el('tbody');
     WC.PLAYERS.forEach(function (p) {
       var tr = el('tr');
-      tr.innerHTML = '<td class="b gold">' + p.name + '</td>' + p.teams.map(function (t) { return '<td>' + t + '</td>'; }).join('');
+      tr.innerHTML = '<td class="b gold">' + p.name + '</td>' + p.teams.map(function (t) { return '<td>' + WC.flagHTML(t) + t + '</td>'; }).join('');
       tb.appendChild(tr);
     });
     t.appendChild(tb); root.appendChild(t);
@@ -659,22 +665,63 @@
     return root;
   }
 
+  var flagPNGCache = {};   // Twemoji code -> PNG data URI (rasterised once per session)
+
+  // Rasterise a flag SVG to a PNG data URI via an offscreen canvas, so the report
+  // (SVG → canvas → PNG) embeds self-contained images that render identically on
+  // every device. Same-origin SVG with no external refs → canvas isn't tainted.
+  function rasterizeFlag(code) {
+    return new Promise(function (resolve) {
+      if (flagPNGCache[code]) return resolve();
+      fetch('flags/' + code + '.svg').then(function (r) { return r.text(); }).then(function (svg) {
+        if (!/<svg[^>]*\bwidth=/.test(svg)) svg = svg.replace('<svg', '<svg width="128" height="128"');
+        var img = new Image();
+        img.onload = function () {
+          try {
+            var c = document.createElement('canvas'); c.width = 128; c.height = 128;
+            c.getContext('2d').drawImage(img, 0, 0, 128, 128);
+            flagPNGCache[code] = c.toDataURL('image/png');
+          } catch (e) {}
+          resolve();
+        };
+        img.onerror = function () { resolve(); };
+        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+      })['catch'](function () { resolve(); });
+    });
+  }
+
+  // Rasterise the flags for every team appearing in the report, then run cb.
+  function ensureReportFlags(cb) {
+    var codes = {};
+    (Live.get().matches || []).forEach(function (m) {
+      [m.home, m.away].forEach(function (t) { var c = WC.FLAG && WC.FLAG[t]; if (c && !flagPNGCache[c]) codes[c] = 1; });
+    });
+    var list = Object.keys(codes);
+    if (!list.length) return cb();
+    Promise.all(list.map(rasterizeFlag)).then(cb, cb);
+  }
+
   function buildReport() {
     return R.build(Live.get(), {
       reportDate: reportState.reportDate,
-      timestamp: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+      timestamp: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+      flags: flagPNGCache
     });
   }
-  function refreshPreview() { var p = $('#report-preview'); if (p) p.innerHTML = buildReport().svg; }
+  function refreshPreview() {
+    ensureReportFlags(function () { var p = $('#report-preview'); if (p) p.innerHTML = buildReport().svg; });
+  }
   function exportPNG() {
-    var built = buildReport();
-    R.toPNG(built, reportState.scale, function (blob) {
-      if (!blob) { alert('Export failed.'); return; }
-      var a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'wc26-morning-report-' + reportState.reportDate + '.png';
-      a.click();
-      setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+    ensureReportFlags(function () {
+      var built = buildReport();
+      R.toPNG(built, reportState.scale, function (blob) {
+        if (!blob) { alert('Export failed.'); return; }
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'wc26-morning-report-' + reportState.reportDate + '.png';
+        a.click();
+        setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+      });
     });
   }
 
@@ -790,7 +837,7 @@
     var tb = el('tbody');
     rows.forEach(function (r, i) {
       var tr = el('tr');
-      tr.innerHTML = '<td>' + (i + 1) + '</td><td>' + r.team + '</td><td class="muted">' + r.owner +
+      tr.innerHTML = '<td>' + (i + 1) + '</td><td>' + WC.flagHTML(r.team) + r.team + '</td><td class="muted">' + r.owner +
         '</td><td class="r b gold">' + fmtPct(r.winnerProb) + '</td><td class="r">' + fmtOdds(r.winnerOdds) +
         '</td><td class="r muted">' + fmtOdds(r.runnerUpOdds) + '</td>';
       tb.appendChild(tr);

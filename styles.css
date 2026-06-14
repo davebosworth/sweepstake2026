@@ -157,6 +157,9 @@ body {
 .tag { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; min-width: 70px; }
 .mr-teams { font-size: 15px; }
 .mr-score { padding: 0 6px; }
+/* emoji flag (Twemoji SVG) shown inline next to team names */
+.flag { height: 1.15em; width: 1.15em; vertical-align: -0.18em; margin-right: 6px; flex: none; }
+.tbl .flag { margin-right: 7px; }
 .mr-score.fin { color: var(--gold); font-weight: bold; }
 .mr-score.sched { color: var(--muted); }
 .mr-owners { font-size: 12px; }

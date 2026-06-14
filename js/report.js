@@ -15,6 +15,19 @@
   var PAD = 40;          // inner card padding
   var CW = W - 2 * M;    // content width
   var _uid = 0;          // unique id source for per-bar SVG clip paths
+  var FLAGS = {};        // code -> PNG data URI for the current build (set in build())
+  var FW = 46;           // flag draw size (px)
+
+  // PNG data URI for a team's flag, or null. Flags are pre-rasterised to PNG and
+  // embedded (not external/SVG) so the SVG→canvas→PNG export stays self-contained
+  // and renders identically on every device.
+  function flagFor(team) {
+    var code = WC.FLAG && WC.FLAG[team];
+    return code ? (FLAGS[code] || null) : null;
+  }
+  function flagImage(parts, x, y, size, uri) {
+    parts.push('<image x="' + x + '" y="' + y + '" width="' + size + '" height="' + size + '" href="' + uri + '" preserveAspectRatio="xMidYMid meet"/>');
+  }
 
   /* ---- tiny SVG helpers ---------------------------------------------------- */
   function esc(s) {
@@ -127,21 +140,25 @@
     parts.push(text(lx, cy, m.group || '', { fill: T.muted, size: 22, weight: 'bold', spacing: 2 }));
     parts.push(text(rx, cy, 'FT', { fill: T.gold, size: 22, weight: 'bold', anchor: 'end', spacing: 2 }));
 
-    // Teams + score
+    // Teams + score (flags sit on the outer edges; text indents to make room)
     var ty = y + top + 24;
-    parts.push(text(lx, ty, m.home, { fill: homeWin || (!homeWin && !awayWin) ? T.white : T.muted, size: 34, weight: 'bold' }));
-    parts.push(text(rx, ty, m.away, { fill: awayWin || (!homeWin && !awayWin) ? T.white : T.muted, size: 34, weight: 'bold', anchor: 'end' }));
+    var hf = flagFor(m.home), af = flagFor(m.away);
+    var hx = lx + (hf ? FW + 12 : 0), ax = rx - (af ? FW + 12 : 0);
+    if (hf) flagImage(parts, lx, ty - 36, FW, hf);
+    if (af) flagImage(parts, rx - FW, ty - 36, FW, af);
+    parts.push(text(hx, ty, m.home, { fill: homeWin || (!homeWin && !awayWin) ? T.white : T.muted, size: 34, weight: 'bold' }));
+    parts.push(text(ax, ty, m.away, { fill: awayWin || (!homeWin && !awayWin) ? T.white : T.muted, size: 34, weight: 'bold', anchor: 'end' }));
     parts.push(text(cx, ty, m.homeScore + ' – ' + m.awayScore, { fill: T.gold, size: 40, weight: 'bold', anchor: 'middle' }));
 
     // Owners beneath each team
     var oy = ty + 34;
-    parts.push(text(lx, oy, WC.ownerOf(m.home), { fill: homeWin ? T.green : T.muted, size: 24, weight: 'bold' }));
-    parts.push(text(rx, oy, WC.ownerOf(m.away), { fill: awayWin ? T.green : T.muted, size: 24, weight: 'bold', anchor: 'end' }));
+    parts.push(text(hx, oy, WC.ownerOf(m.home), { fill: homeWin ? T.green : T.muted, size: 24, weight: 'bold' }));
+    parts.push(text(ax, oy, WC.ownerOf(m.away), { fill: awayWin ? T.green : T.muted, size: 24, weight: 'bold', anchor: 'end' }));
 
     // Goalscorers
     var sy = oy + 40;
-    hLines.forEach(function (ln, i) { parts.push(text(lx, sy + i * 28, ln, { fill: T.muted, size: 22 })); });
-    aLines.forEach(function (ln, i) { parts.push(text(rx, sy + i * 28, ln, { fill: T.muted, size: 22, anchor: 'end' })); });
+    hLines.forEach(function (ln, i) { parts.push(text(hx, sy + i * 28, ln, { fill: T.muted, size: 22 })); });
+    aLines.forEach(function (ln, i) { parts.push(text(ax, sy + i * 28, ln, { fill: T.muted, size: 22, anchor: 'end' })); });
 
     return y + h;
   }
@@ -175,13 +192,17 @@
     parts.push(text(rx, cy, (m.kickoff || '') + (m.kickoff ? ' UK' : ''), { fill: T.gold, size: 22, weight: 'bold', anchor: 'end' }));
 
     var ty = y + 92;
-    parts.push(text(lx, ty, m.home, { fill: T.white, size: 32, weight: 'bold' }));
+    var hf = flagFor(m.home), af = flagFor(m.away);
+    var hx = lx + (hf ? FW + 12 : 0), ax = rx - (af ? FW + 12 : 0);
+    if (hf) flagImage(parts, lx, ty - 35, FW, hf);
+    if (af) flagImage(parts, rx - FW, ty - 35, FW, af);
+    parts.push(text(hx, ty, m.home, { fill: T.white, size: 32, weight: 'bold' }));
     parts.push(text(cx, ty, 'vs', { fill: T.muted, size: 26, anchor: 'middle' }));
-    parts.push(text(rx, ty, m.away, { fill: T.white, size: 32, weight: 'bold', anchor: 'end' }));
+    parts.push(text(ax, ty, m.away, { fill: T.white, size: 32, weight: 'bold', anchor: 'end' }));
 
     var oy = ty + 32;
-    parts.push(text(lx, oy, WC.ownerOf(m.home), { fill: T.muted, size: 24, weight: 'bold' }));
-    parts.push(text(rx, oy, WC.ownerOf(m.away), { fill: T.muted, size: 24, weight: 'bold', anchor: 'end' }));
+    parts.push(text(hx, oy, WC.ownerOf(m.home), { fill: T.muted, size: 24, weight: 'bold' }));
+    parts.push(text(ax, oy, WC.ownerOf(m.away), { fill: T.muted, size: 24, weight: 'bold', anchor: 'end' }));
 
     if (hasPred) {
       function pr(v) { return Math.round(v == null ? 0 : v); }
@@ -234,7 +255,9 @@
       if (i % 2 === 1) parts.push(rect(M + 12, ry, CW - 24, rowH, { rx: 10, fill: '#0d3225' }));
       var ty = ry + 40;
       parts.push(text(cRank, ty, r.rank + (i === 0 ? ' ★' : ''), { fill: T.gold, size: 26, weight: 'bold' }));
-      parts.push(text(cTeam, ty, r.team, { fill: T.white, size: 26, weight: 'bold' }));
+      var tf = flagFor(r.team);
+      if (tf) flagImage(parts, cTeam, ty - 27, 32, tf);
+      parts.push(text(cTeam + (tf ? 42 : 0), ty, r.team, { fill: T.white, size: 26, weight: 'bold' }));
       parts.push(text(cOwner, ty, r.owner, { fill: T.muted, size: 24 }));
       parts.push(text(cPts, ty, r.Pts, { fill: T.white, size: 26, weight: 'bold', anchor: 'end' }));
       var gd = (r.GD > 0 ? '+' : '') + r.GD;
@@ -281,7 +304,9 @@
 
       var ty = ry + 42;
       parts.push(text(cRank, ty, r.rank + (leading ? ' ★' : ''), { fill: T.gold, size: 26, weight: 'bold' }));
-      parts.push(text(cTeam, ty, r.team, { fill: T.white, size: 26, weight: 'bold' }));
+      var tf = flagFor(r.team);
+      if (tf) flagImage(parts, cTeam, ty - 27, 32, tf);
+      parts.push(text(cTeam + (tf ? 42 : 0), ty, r.team, { fill: T.white, size: 26, weight: 'bold' }));
       parts.push(text(cOwner, ty, r.owner, { fill: leading ? T.gold : T.muted, size: 24, weight: leading ? 'bold' : 'normal' }));
 
       var cx = cChips;
@@ -297,6 +322,7 @@
 
   function build(state, opts) {
     opts = opts || {};
+    FLAGS = opts.flags || {};   // code -> PNG data URI (pre-rasterised by the caller)
     var reportDate = opts.reportDate || new Date().toISOString().slice(0, 10);
     var startDate = state.startDate || WC.DEFAULT_START_DATE;
     var yDate = shiftDate(reportDate, -1);

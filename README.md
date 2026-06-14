@@ -106,9 +106,19 @@ browser, the web equivalent of the original `cairosvg` pipeline.
 index.html        markup + script order
 styles.css        dark-green theme
 js/data.js        fixed allocations, owner lookup, design tokens
+js/flags.js       team -> emoji flag (Twemoji) lookup
+flags/            bundled Twemoji flag SVGs (one per team)
 js/espn.js        ESPN fetch + normalise + team-name mapping
 js/live.js        live data layer (fetch-on-load, in-memory, no storage)
 js/standings.js   all table computations (pure, derived from matches)
 js/report.js      Morning Report SVG builder + PNG export
 js/app.js         UI: tabs, live status, report controls
 ```
+
+## Credits
+
+Flag artwork is [Twemoji](https://github.com/twitter/twemoji) by Twitter,
+licensed [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/). The SVGs are
+bundled under `flags/` so they render identically on every device, independent
+of the OS emoji font (notably the England and Scotland subdivision flags, which
+Windows doesn't render natively).
