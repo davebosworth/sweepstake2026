@@ -787,13 +787,12 @@
     panel.appendChild(el('h2', null, ['All Teams · Outright Odds ',
       el('span', { class: 'sub' }, [oddsState.updatedAt ? 'updated ' + oddsState.updatedAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : ''])]));
     var t = el('table', { class: 'tbl' });
-    t.innerHTML = '<thead><tr><th>#</th><th>Team</th><th>Owner</th><th class="r">Win %</th><th class="r">Winner</th><th class="r">Runner-up</th></tr></thead>';
+    t.innerHTML = '<thead><tr><th>#</th><th>Team</th><th>Owner</th><th class="r">Win %</th><th class="r">Winner</th></tr></thead>';
     var tb = el('tbody');
     rows.forEach(function (r, i) {
       var tr = el('tr');
       tr.innerHTML = '<td>' + (i + 1) + '</td><td>' + WC.flagHTML(r.team) + r.team + '</td><td class="muted">' + r.owner +
-        '</td><td class="r b gold">' + fmtPct(r.winnerProb) + '</td><td class="r">' + fmtOdds(r.winnerOdds) +
-        '</td><td class="r muted">' + fmtOdds(r.runnerUpOdds) + '</td>';
+        '</td><td class="r b gold">' + fmtPct(r.winnerProb) + '</td><td class="r">' + fmtOdds(r.winnerOdds) + '</td>';
       tb.appendChild(tr);
     });
     t.appendChild(tb); panel.appendChild(t);
