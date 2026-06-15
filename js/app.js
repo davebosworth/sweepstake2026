@@ -373,17 +373,22 @@
     }
     root.appendChild(recPanel);
 
-    // Golden Boot
+    // Golden Boot — top 5 scorers with 2+ goals; if players are level at the
+    // cut-off, show everyone tied (never split a tie). One-goal players are
+    // hidden.
     var gb = WC.Stats.goldenBoot(st);
+    var top = gb.filter(function (r) { return r.goals >= 2; });
+    if (top.length > 5) { var cut = top[4].goals; top = top.filter(function (r) { return r.goals >= cut; }); }
     var gbPanel = el('div', { class: 'panel' });
-    gbPanel.appendChild(el('h2', null, ['Golden Boot ', el('span', { class: 'sub' }, ['top scorers'])]));
-    if (!gb.length) {
-      gbPanel.appendChild(el('p', { class: 'empty' }, [st.detailLoading ? 'Loading scorers from ESPN…' : 'No goals recorded yet.']));
+    gbPanel.appendChild(el('h2', null, ['Golden Boot ', el('span', { class: 'sub' }, ['2+ goals'])]));
+    if (!top.length) {
+      gbPanel.appendChild(el('p', { class: 'empty' }, [st.detailLoading ? 'Loading scorers from ESPN…'
+        : (gb.length ? 'No player has scored twice yet.' : 'No goals recorded yet.')]));
     } else {
       var t = el('table', { class: 'tbl scorers' });
       t.innerHTML = '<thead><tr><th>#</th><th>Player</th><th>Team</th><th>Owner</th><th class="r">Goals</th><th class="r">Pens</th></tr></thead>';
       var tb = el('tbody');
-      gb.forEach(function (r, i) {
+      top.forEach(function (r, i) {
         var tr = el('tr', i === 0 ? { class: 'leader' } : null);
         tr.innerHTML = '<td>' + (i + 1) + (i === 0 ? ' ★' : '') + '</td><td class="b">' + r.player + '</td><td>' + WC.flagHTML(r.team) + r.team +
           '</td><td class="muted">' + r.owner + '</td><td class="r b gold">' + r.goals + '</td><td class="r muted">' + (r.pens || '') + '</td>';
