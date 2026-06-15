@@ -94,8 +94,9 @@ body {
 .panel h2 { margin: 0 0 14px; font-size: 18px; display: flex; align-items: baseline; gap: 10px; }
 .panel h2 .sub { font-size: 12px; font-weight: normal; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
 .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-.group-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 20px; }
+.group-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
 @media (max-width: 820px) { .two-col { grid-template-columns: 1fr; } }
+@media (max-width: 1000px) { .group-grid { grid-template-columns: 1fr; } }
 
 /* ---- stat cards ---- */
 .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
@@ -112,6 +113,10 @@ body {
 .tbl .r { text-align: right; }
 .tbl .b { font-weight: bold; }
 .tbl .muted { color: var(--muted); }
+/* group standings: compact + single-line so they fit two-up without scrolling */
+.tbl.standings { font-size: 13px; }
+.tbl.standings th, .tbl.standings td { padding: 8px 6px; white-space: nowrap; }
+.tbl.standings .flag { margin-right: 5px; }
 .tbl .gold { color: var(--gold); }
 .tbl .red { color: var(--red); }
 .tbl tr.leader td { background: rgba(244, 196, 48, 0.10); }
