@@ -67,6 +67,17 @@
     return p.year + '-' + p.month + '-' + p.day;
   }
 
+  // The UK calendar day (YYYY-MM-DD). Used for the daily odds snapshot/trend so
+  // "the day before" is the previous UK day, regardless of host time zone.
+  function londonDay(input) {
+    var d = (input instanceof Date) ? input : new Date(input == null ? Date.now() : input);
+    if (isNaN(d)) return null;
+    var p = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit'
+    }).formatToParts(d).reduce(function (a, x) { a[x.type] = x.value; return a; }, {});
+    return p.year + '-' + p.month + '-' + p.day;
+  }
+
   // The UK kick-off time (HH:MM) for display only. The day a match belongs to
   // is the local match day (ESPN's scoreboard date), NOT this — the hosts are
   // 5-8h behind the UK, so a US evening kickoff is the small hours UK time and
@@ -336,6 +347,7 @@
     fetchGroups: fetchGroups,
     mapTeam: mapTeam,
     localDay: localDay,
+    londonDay: londonDay,
     BASE: BASE
   };
 

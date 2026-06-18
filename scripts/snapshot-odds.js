@@ -52,7 +52,7 @@ const url = WC.Odds.BASE + '/sports/' + encodeURIComponent(winnerKey) +
 
   let hist = {};
   try { hist = JSON.parse(fs.readFileSync(FILE, 'utf8')) || {}; } catch (e) {}
-  const today = WC.ESPN.localDay(new Date());  // host-region day, matching the site
+  const today = WC.ESPN.londonDay(new Date());  // UK day, matching the site's trend basis
   hist[today] = day;
   Object.keys(hist).sort().slice(0, -KEEP_DAYS).forEach(function (d) { delete hist[d]; });
 

@@ -803,14 +803,14 @@
     rows.forEach(function (r) { if (r.winnerProb != null) day[r.team] = r.winnerProb; });
     if (!Object.keys(day).length) return;
     var snaps = loadSnaps();
-    snaps[todayISO()] = day;
+    snaps[WC.ESPN.londonDay()] = day;
     Object.keys(snaps).sort().slice(0, -30).forEach(function (d) { delete snaps[d]; }); // keep last 30 days
     try { localStorage.setItem(SNAP_KEY, JSON.stringify(snaps)); } catch (e) {}
   }
-  // Baseline = most recent snapshot from a day before today; prefer the central
-  // history, fall back to this browser's own snapshots.
+  // Baseline = most recent snapshot from a UK day before today; prefer the
+  // central history, fall back to this browser's own snapshots.
   function oddsBaseline() {
-    var today = todayISO();
+    var today = WC.ESPN.londonDay();
     function priorFrom(snaps) {
       if (!snaps) return null;
       var prior = Object.keys(snaps).filter(function (d) { return d < today; }).sort();
