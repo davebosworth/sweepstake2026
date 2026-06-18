@@ -150,6 +150,14 @@
 
   function fmtOdds(d) { return d == null ? '—' : d.toFixed(2); }
   function fmtPct(p) { return p == null ? '—' : (p * 100).toFixed(1) + '%'; }
+  // Win-% movement vs a baseline (both fractions). Up = win chance improved.
+  function trendHTML(cur, base) {
+    if (cur == null || base == null) return '<span class="muted">—</span>';
+    var dpp = (cur - base) * 100;
+    if (Math.abs(dpp) < 0.05) return '<span class="muted">–</span>';
+    var up = dpp > 0;
+    return '<span class="' + (up ? 'green' : 'red') + '">' + (up ? '▲' : '▼') + ' ' + Math.abs(dpp).toFixed(1) + '</span>';
+  }
 
   // Dashboard: the five shortest-priced teams to win, with owner + odds.
   function favouritesPanel() {
@@ -773,12 +781,36 @@
 
   /* ---- Odds (The Odds API) ------------------------------------------------ */
   var oddsState = { status: 'idle', rows: [], error: null, updatedAt: null };
+
+  // Daily self-snapshot of each team's win % so we can show movement vs an
+  // earlier day without the (10x credit) historical odds API. Stored in this
+  // browser only: { 'YYYY-MM-DD': { team: winProb } }, pruned to ~30 days.
+  var SNAP_KEY = 'wc26-odds-snap-v1';
+  function loadSnaps() { try { return JSON.parse(localStorage.getItem(SNAP_KEY)) || {}; } catch (e) { return {}; } }
+  function snapshotOdds(rows) {
+    var day = {};
+    rows.forEach(function (r) { if (r.winnerProb != null) day[r.team] = r.winnerProb; });
+    if (!Object.keys(day).length) return;
+    var snaps = loadSnaps();
+    snaps[todayISO()] = day;
+    Object.keys(snaps).sort().slice(0, -30).forEach(function (d) { delete snaps[d]; }); // keep last 30 days
+    try { localStorage.setItem(SNAP_KEY, JSON.stringify(snaps)); } catch (e) {}
+  }
+  // Most recent snapshot from a day before today (the "yesterday" baseline).
+  function oddsBaseline() {
+    var snaps = loadSnaps(), today = todayISO();
+    var prior = Object.keys(snaps).filter(function (d) { return d < today; }).sort();
+    return prior.length ? snaps[prior[prior.length - 1]] : null;
+  }
+
   function loadOdds() {
     var cfg = WC.Odds.getConfig();
     if (!cfg.apiKey) { oddsState.status = 'nokey'; render(); return; }
     oddsState.status = 'loading'; render();
     WC.Odds.fetchAll().then(function (res) {
-      oddsState.rows = res.rows; oddsState.updatedAt = res.updatedAt; oddsState.status = 'ok'; render();
+      oddsState.rows = res.rows; oddsState.updatedAt = res.updatedAt; oddsState.status = 'ok';
+      snapshotOdds(res.rows);
+      render();
     }).catch(function (e) {
       oddsState.status = 'error'; oddsState.error = (e && e.message) ? e.message : 'request failed'; render();
     });
@@ -808,19 +840,21 @@
       return a.winnerOdds - b.winnerOdds;
     });
 
+    var baseline = oddsBaseline();
     var panel = el('div', { class: 'panel' });
     panel.appendChild(el('h2', null, ['All Teams · Outright Odds ',
       el('span', { class: 'sub' }, [oddsState.updatedAt ? 'updated ' + oddsState.updatedAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : ''])]));
     var t = el('table', { class: 'tbl' });
-    t.innerHTML = '<thead><tr><th>#</th><th>Team</th><th>Owner</th><th class="r">Win %</th><th class="r">Winner</th></tr></thead>';
+    t.innerHTML = '<thead><tr><th>#</th><th>Team</th><th>Owner</th><th class="r">Win %</th><th class="r">Trend</th></tr></thead>';
     var tb = el('tbody');
     rows.forEach(function (r, i) {
       var tr = el('tr');
       tr.innerHTML = '<td>' + (i + 1) + '</td><td>' + WC.flagHTML(r.team) + r.team + '</td><td class="muted">' + r.owner +
-        '</td><td class="r b gold">' + fmtPct(r.winnerProb) + '</td><td class="r">' + fmtOdds(r.winnerOdds) + '</td>';
+        '</td><td class="r b gold">' + fmtPct(r.winnerProb) + '</td><td class="r">' + trendHTML(r.winnerProb, baseline ? baseline[r.team] : null) + '</td>';
       tb.appendChild(tr);
     });
     t.appendChild(tb); panel.appendChild(t);
+    panel.appendChild(el('p', { class: 'muted small', style: 'margin:10px 2px 0' }, ['Trend is the change in win % (percentage points) since the previous day’s odds — it appears once a day’s snapshot exists to compare against.']));
     root.appendChild(panel);
     return root;
   }
