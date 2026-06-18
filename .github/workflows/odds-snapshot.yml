@@ -1,0 +1,42 @@
+name: Daily odds snapshot
+
+# Records each day's tournament-winner win % into data/odds-history.json so the
+# site can show win-% movement (the Trend column) centrally, the same for
+# everyone. Runs once a day; can also be triggered manually to seed/refresh.
+
+on:
+  schedule:
+    - cron: '15 6 * * *'   # 06:15 UTC daily
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+# Don't pile up overlapping runs.
+concurrency:
+  group: odds-snapshot
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Fetch odds and update snapshot
+        env:
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}   # optional; falls back to js/config.js
+        run: node scripts/snapshot-odds.js
+      - name: Commit if changed
+        run: |
+          if [[ -n "$(git status --porcelain data/odds-history.json)" ]]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add data/odds-history.json
+            git commit -m "Daily odds snapshot"
+            git push
+          else
+            echo "No change to odds-history.json"
+          fi

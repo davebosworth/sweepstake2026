@@ -135,6 +135,9 @@
       });
   }
 
-  WC.Odds = { fetchAll: fetchAll, listMarkets: listMarkets, getConfig: getConfig, setConfig: setConfig, BASE: BASE };
+  WC.Odds = {
+    fetchAll: fetchAll, listMarkets: listMarkets, getConfig: getConfig, setConfig: setConfig, BASE: BASE,
+    parseOutright: parseOutright, impliedProbs: impliedProbs   // shared with the daily-snapshot script
+  };
 
 })(window.WC = window.WC || {});

@@ -175,13 +175,14 @@
       .sort(function (a, b) { return a.winnerOdds - b.winnerOdds; }).slice(0, 5);
     if (!top.length) { panel.appendChild(el('p', { class: 'empty' }, ['No odds returned.'])); return panel; }
 
+    var baseline = oddsBaseline();
     var t = el('table', { class: 'tbl' });
-    t.innerHTML = '<thead><tr><th>#</th><th>Team</th><th>Owner</th><th class="r">Win %</th><th class="r">Odds</th></tr></thead>';
+    t.innerHTML = '<thead><tr><th>#</th><th>Team</th><th>Owner</th><th class="r">Win %</th><th class="r">Trend</th></tr></thead>';
     var tb = el('tbody');
     top.forEach(function (r, i) {
       var tr = el('tr', i === 0 ? { class: 'leader' } : null);
       tr.innerHTML = '<td>' + (i + 1) + (i === 0 ? ' ★' : '') + '</td><td>' + WC.flagHTML(r.team) + r.team + '</td><td class="muted">' + r.owner +
-        '</td><td class="r b gold">' + fmtPct(r.winnerProb) + '</td><td class="r">' + fmtOdds(r.winnerOdds) + '</td>';
+        '</td><td class="r b gold">' + fmtPct(r.winnerProb) + '</td><td class="r">' + trendHTML(r.winnerProb, baseline ? baseline[r.team] : null) + '</td>';
       tb.appendChild(tr);
     });
     t.appendChild(tb); panel.appendChild(t);
@@ -782,9 +783,19 @@
   /* ---- Odds (The Odds API) ------------------------------------------------ */
   var oddsState = { status: 'idle', rows: [], error: null, updatedAt: null };
 
-  // Daily self-snapshot of each team's win % so we can show movement vs an
-  // earlier day without the (10x credit) historical odds API. Stored in this
-  // browser only: { 'YYYY-MM-DD': { team: winProb } }, pruned to ~30 days.
+  // Win-% movement (the Trend column) compares today's odds to an earlier day.
+  // The source of truth is a CENTRAL daily history committed to the repo by a
+  // GitHub Action (data/odds-history.json) — same for everyone, no historical
+  // odds API needed. A per-browser localStorage snapshot is kept only as a
+  // fallback for before the central file has data. { 'YYYY-MM-DD': { team: winProb } }
+  var oddsHistory = null;   // central history, null until fetched
+  function loadOddsHistory() {
+    fetch('data/odds-history.json?t=' + Date.now(), { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (h) { oddsHistory = h || {}; if (oddsState.status === 'ok') render(); })
+      ['catch'](function () { oddsHistory = oddsHistory || {}; });
+  }
+
   var SNAP_KEY = 'wc26-odds-snap-v1';
   function loadSnaps() { try { return JSON.parse(localStorage.getItem(SNAP_KEY)) || {}; } catch (e) { return {}; } }
   function snapshotOdds(rows) {
@@ -796,11 +807,16 @@
     Object.keys(snaps).sort().slice(0, -30).forEach(function (d) { delete snaps[d]; }); // keep last 30 days
     try { localStorage.setItem(SNAP_KEY, JSON.stringify(snaps)); } catch (e) {}
   }
-  // Most recent snapshot from a day before today (the "yesterday" baseline).
+  // Baseline = most recent snapshot from a day before today; prefer the central
+  // history, fall back to this browser's own snapshots.
   function oddsBaseline() {
-    var snaps = loadSnaps(), today = todayISO();
-    var prior = Object.keys(snaps).filter(function (d) { return d < today; }).sort();
-    return prior.length ? snaps[prior[prior.length - 1]] : null;
+    var today = todayISO();
+    function priorFrom(snaps) {
+      if (!snaps) return null;
+      var prior = Object.keys(snaps).filter(function (d) { return d < today; }).sort();
+      return prior.length ? snaps[prior[prior.length - 1]] : null;
+    }
+    return priorFrom(oddsHistory) || priorFrom(loadSnaps());
   }
 
   function loadOdds() {
@@ -911,6 +927,7 @@
     Live.onChange(function () { render(); });
     render();
     Live.load();
+    loadOddsHistory(); // central win-% history for the Trend column
     loadOdds(); // fetch odds if a key is already configured (else flags 'nokey')
   }
 
