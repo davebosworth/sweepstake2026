@@ -367,6 +367,100 @@
     return root;
   }
 
+  /* ---- TAB: Projections (Monte Carlo) ------------------------------------- */
+  // Cache the (expensive) simulation; only recompute when the inputs change.
+  var projCache = { sig: null, proj: null, bracket: null };
+  function projectionData() {
+    var st = Live.get();
+    var sig = st.matches.filter(S.isFinished).length + '|' + (oddsState.updatedAt ? oddsState.updatedAt.getTime() : 0);
+    if (projCache.sig !== sig) {
+      projCache.sig = sig;
+      projCache.proj = WC.Sim.project(st, oddsState.rows, 3000);
+      projCache.bracket = WC.Sim.projectedBracket(st, oddsState.rows);
+    }
+    return projCache;
+  }
+  function pctSmall(f) { return (f * 100).toFixed(f < 0.0995 ? 1 : 0) + '%'; }
+
+  function koMatchEl(m) {
+    var loser = m.pick === m.a ? m.b : m.a;
+    var score = m.pick === m.a ? (m.score[0] + '–' + m.score[1]) : (m.score[1] + '–' + m.score[0]);
+    return el('div', { class: 'ko-match' }, [
+      el('span', { class: 'ko-team win' }, [flagEl(m.pick), m.pick]),
+      el('span', { class: 'ko-score' }, [score + (m.pens ? ' p' : '')]),
+      el('span', { class: 'ko-team muted' }, [flagEl(loser), loser]),
+      el('span', { class: 'ko-pct muted' }, [Math.round(m.winPct * 100) + '%'])
+    ]);
+  }
+
+  function renderProjections() {
+    var root = el('div');
+    if (oddsState.status !== 'ok') {
+      var np = el('div', { class: 'panel' });
+      np.appendChild(el('h2', null, ['Projections']));
+      np.appendChild(el('p', { class: 'empty' }, [oddsState.status === 'loading'
+        ? 'Loading odds…' : 'Odds are needed to model the tournament — see the Winner Odds tab.']));
+      root.appendChild(np); return root;
+    }
+    var data = projectionData();
+    if (!data.proj) {
+      var ep = el('div', { class: 'panel' });
+      ep.appendChild(el('h2', null, ['Projections']));
+      ep.appendChild(el('p', { class: 'empty' }, ['Not enough data to model yet — waiting on odds and the group fixtures.']));
+      root.appendChild(ep); return root;
+    }
+
+    // Projected returns per player
+    var rp = el('div', { class: 'panel' });
+    rp.appendChild(el('h2', null, ['Projected Returns ',
+      el('span', { class: 'sub' }, ['Monte Carlo · ' + data.proj.n.toLocaleString() + ' sims'])]));
+    var t = el('table', { class: 'tbl' });
+    t.innerHTML = '<thead><tr><th>#</th><th>Player</th><th class="r">Win £80</th><th class="r">RU £20</th><th class="r">Exp £</th></tr></thead>';
+    var tb = el('tbody');
+    data.proj.players.forEach(function (p, i) {
+      var tr = el('tr', i === 0 ? { class: 'leader' } : null);
+      tr.innerHTML = '<td>' + (i + 1) + (i === 0 ? ' ★' : '') + '</td><td class="b">' + p.player +
+        '</td><td class="r muted">' + pctSmall(p.pWin) + '</td><td class="r muted">' + pctSmall(p.pRunner) +
+        '</td><td class="r b gold">£' + p.exp.toFixed(1) + '</td>';
+      tb.appendChild(tr);
+    });
+    t.appendChild(tb); rp.appendChild(t);
+    rp.appendChild(el('p', { class: 'muted small', style: 'margin:10px 2px 0' }, ['Each team’s Elo starts from the bookmaker win % and is nudged by results; the remaining tournament is simulated to a winner and runner-up. Expected £ = P(win)×£80 + P(runner-up)×£20.']));
+    root.appendChild(rp);
+
+    // Title odds per team (model)
+    var cp = el('div', { class: 'panel' });
+    cp.appendChild(el('h2', null, ['Title Odds ', el('span', { class: 'sub' }, ['model champion / runner-up'])]));
+    var ct = el('table', { class: 'tbl' });
+    ct.innerHTML = '<thead><tr><th>Team</th><th>Owner</th><th class="r">Champion</th><th class="r">Runner-up</th></tr></thead>';
+    var ctb = el('tbody');
+    data.proj.teams.filter(function (x) { return x.champ >= 0.005; }).slice(0, 12).forEach(function (x, i) {
+      var tr = el('tr', i === 0 ? { class: 'leader' } : null);
+      tr.innerHTML = '<td>' + WC.flagHTML(x.team) + x.team + '</td><td class="muted">' + x.owner +
+        '</td><td class="r b gold">' + pctSmall(x.champ) + '</td><td class="r muted">' + pctSmall(x.ru) + '</td>';
+      ctb.appendChild(tr);
+    });
+    ct.appendChild(ctb); cp.appendChild(ct); root.appendChild(cp);
+
+    // Knockout predictor — projected bracket
+    if (data.bracket) {
+      var kp = el('div', { class: 'panel' });
+      kp.appendChild(el('h2', null, ['Knockout Predictor ', el('span', { class: 'sub' }, ['projected bracket'])]));
+      kp.appendChild(el('p', { class: 'muted small', style: 'margin:0 2px 12px' }, ['Most-likely qualifiers, seeded by rating, with each tie’s modelled result (p = decided on penalties). Firms up as group results land.']));
+      data.bracket.rounds.forEach(function (rnd) {
+        var det = el('details', rnd.matches.length <= 8 ? { open: 'open' } : null);
+        det.appendChild(el('summary', null, [el('b', null, [rnd.name]),
+          el('span', { class: 'muted small' }, ['  ' + rnd.matches.length + (rnd.matches.length === 1 ? ' tie' : ' ties')])]));
+        var list = el('div', { class: 'ko-round' });
+        rnd.matches.forEach(function (m) { list.appendChild(koMatchEl(m)); });
+        det.appendChild(list); kp.appendChild(det);
+      });
+      kp.appendChild(el('div', { class: 'ko-champ' }, ['🏆 Projected winner: ', flagEl(data.bracket.champion), el('b', null, [data.bracket.champion])]));
+      root.appendChild(kp);
+    }
+    return root;
+  }
+
   /* ---- TAB: Stats (Golden Boot + tournament records) ---------------------- */
   function renderStats() {
     var st = Live.get();
@@ -897,6 +991,7 @@
     ['fixtures', 'Fixtures & Results', renderFixtures],
     ['standings', 'Standings', renderStandings],
     ['odds', 'Winner Odds', renderOdds],
+    ['projections', 'Projections', renderProjections],
     ['players', 'Player Tracker', renderPlayers],
     ['stats', 'Stats', renderStats],
     ['report', 'Morning Report', renderReport],
