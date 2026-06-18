@@ -50,8 +50,6 @@
     var st = Live.get();
     var disc = S.disciplinary(st);
     var worst = S.worstTeams(st);
-    var teams = S.computeTeams(st);
-    var played = Object.keys(teams).filter(function (k) { return teams[k].played; }).length;
     var finished = st.matches.filter(S.isFinished).length;
 
 
@@ -89,8 +87,9 @@
     }
 
     var grid = el('div', { class: 'grid' });
+    var groupLeft = st.matches.filter(function (m) { return /group/i.test(m.group || '') && m.status !== 'ft'; }).length;
     grid.appendChild(statCard('Matches played', finished));
-    grid.appendChild(statCard('Teams in action', played + ' / 48'));
+    grid.appendChild(statCard('Games left in group stage', groupLeft));
     grid.appendChild(statCard('Disciplinary leader', disc.length ? disc[0].team + ' · ' + disc[0].owner : '—'));
     grid.appendChild(statCard('Wooden spoon', worst.length ? worst[0].team + ' · ' + worst[0].owner : '—'));
     root.appendChild(grid);
