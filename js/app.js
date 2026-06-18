@@ -281,6 +281,29 @@
     });
   }
 
+  // Group-stage form (W/D/L) for a team, oldest game first, padded to three
+  // boxes. Unplayed/in-progress games stay blank so boxes fill in as results
+  // come in. Group games are identified by their derived "Group X" label.
+  function teamForm(team, matches) {
+    var games = (matches || []).filter(function (m) {
+      return /group/i.test(m.group || '') && (m.home === team || m.away === team);
+    }).sort(function (a, b) { return (a._ts || 0) - (b._ts || 0); }).slice(0, 3);
+    var out = games.map(function (m) {
+      if (m.status !== 'ft' || m.homeScore == null || m.awayScore == null) return null;
+      var us = m.home === team ? m.homeScore : m.awayScore;
+      var them = m.home === team ? m.awayScore : m.homeScore;
+      return us > them ? 'W' : (us < them ? 'L' : 'D');
+    });
+    while (out.length < 3) out.push(null);
+    return out;
+  }
+  function formHTML(form) {
+    return '<span class="form">' + form.map(function (res) {
+      var cls = res === 'W' ? 'w' : res === 'L' ? 'l' : res === 'D' ? 'd' : 'e';
+      return '<span class="form-box form-' + cls + '">' + (res || '') + '</span>';
+    }).join('') + '</span>';
+  }
+
   function renderPlayers() {
     var root = el('div');
     var panel = el('div', { class: 'panel' });
@@ -309,7 +332,8 @@
     panel.appendChild(el('p', { class: 'muted small', style: 'margin:10px 2px 0' }, ['Combined win % is the chance that one of a player’s six teams wins the tournament — higher is a stronger allocation.']));
     root.appendChild(panel);
 
-    // Per-player breakdown of the six teams, shortest price first.
+    // Per-player breakdown of the six teams: group-stage form + win %.
+    var matches = Live.get().matches || [];
     var breakdown = el('div', { class: 'panel' });
     breakdown.appendChild(el('h2', null, ['Squad Breakdown ', el('span', { class: 'sub' }, ['each player’s six teams']) ]));
     stats.forEach(function (s, i) {
@@ -320,11 +344,12 @@
         el('span', { class: 'muted small' }, ['  ' + fmtPct(s.winPct) + ' combined win'])
       ]));
       var tt = el('table', { class: 'tbl' });
-      tt.innerHTML = '<thead><tr><th>Team</th><th class="r">Winner odds</th><th class="r">Win %</th></tr></thead>';
+      tt.innerHTML = '<thead><tr><th>Team</th><th>Form</th><th class="r">Win %</th></tr></thead>';
       var tbb = el('tbody');
       s.teams.forEach(function (tm) {
         var tr = el('tr');
-        tr.innerHTML = '<td>' + WC.flagHTML(tm.team) + tm.team + '</td><td class="r">' + fmtOdds(tm.odds) + '</td><td class="r muted">' + fmtPct(tm.prob) + '</td>';
+        tr.innerHTML = '<td>' + WC.flagHTML(tm.team) + tm.team + '</td><td>' + formHTML(teamForm(tm.team, matches)) +
+          '</td><td class="r muted">' + fmtPct(tm.prob) + '</td>';
         tbb.appendChild(tr);
       });
       tt.appendChild(tbb); det.appendChild(tt);

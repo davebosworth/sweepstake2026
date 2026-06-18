@@ -113,6 +113,14 @@ body {
 .tbl .r { text-align: right; }
 .tbl .b { font-weight: bold; }
 .tbl .muted { color: var(--muted); }
+/* group-stage form boxes (Squad Breakdown): W green, D gold, L red, blank = unplayed */
+.form { display: inline-flex; gap: 4px; }
+.form-box { width: 19px; height: 19px; border-radius: 4px; font-size: 11px; font-weight: bold; display: inline-flex; align-items: center; justify-content: center; color: #06231a; }
+.form-w { background: var(--green); }
+.form-d { background: var(--gold); }
+.form-l { background: var(--red); color: #fff; }
+.form-e { background: var(--card-2); border: 1px solid var(--border); }
+
 /* group standings: compact + single-line so they fit two-up without scrolling */
 .tbl.standings { font-size: 13px; }
 .tbl.standings th, .tbl.standings td { padding: 8px 6px; white-space: nowrap; }
