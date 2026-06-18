@@ -95,6 +95,7 @@
     root.appendChild(grid);
 
     root.appendChild(prizePanel(st));
+    root.appendChild(projectedReturnsPanel());
     root.appendChild(favouritesPanel());
 
     var col = el('div', { class: 'two-col' });
@@ -370,9 +371,10 @@
   /* ---- TAB: Projections (Monte Carlo) ------------------------------------- */
   // Cache the (expensive) simulation; only recompute when the inputs change.
   var projCache = { sig: null, proj: null, bracket: null };
+  var projRunId = 0;   // bumped by the Re-run button to force a fresh Monte Carlo
   function projectionData() {
     var st = Live.get();
-    var sig = st.matches.filter(S.isFinished).length + '|' + (oddsState.updatedAt ? oddsState.updatedAt.getTime() : 0);
+    var sig = st.matches.filter(S.isFinished).length + '|' + (oddsState.updatedAt ? oddsState.updatedAt.getTime() : 0) + '|' + projRunId;
     if (projCache.sig !== sig) {
       projCache.sig = sig;
       projCache.proj = WC.Sim.project(st, oddsState.rows, 3000);
@@ -380,7 +382,34 @@
     }
     return projCache;
   }
+  function rerunSim() { projRunId++; render(); }
   function pctSmall(f) { return (f * 100).toFixed(f < 0.0995 ? 1 : 0) + '%'; }
+
+  // Shared Projected Returns panel (used on the dashboard and Projections tab).
+  function projectedReturnsPanel() {
+    var panel = el('div', { class: 'panel' });
+    var rerun = el('button', { class: 'btn small', type: 'button', style: 'float:right', onclick: rerunSim }, ['↻ Re-run']);
+    panel.appendChild(el('h2', null, ['Projected Returns ', el('span', { class: 'sub' }, ['Monte Carlo · winner & runner-up']), rerun]));
+    if (oddsState.status !== 'ok') {
+      panel.appendChild(el('p', { class: 'empty' }, [oddsState.status === 'loading' ? 'Loading odds…' : 'Needs betting odds — see the Winner Odds tab.']));
+      return panel;
+    }
+    var data = projectionData();
+    if (!data.proj) { panel.appendChild(el('p', { class: 'empty' }, ['Not enough data to model yet.'])); return panel; }
+    var t = el('table', { class: 'tbl' });
+    t.innerHTML = '<thead><tr><th>#</th><th>Player</th><th class="r">Win £80</th><th class="r">RU £20</th><th class="r">Exp £</th></tr></thead>';
+    var tb = el('tbody');
+    data.proj.players.forEach(function (p, i) {
+      var tr = el('tr', i === 0 ? { class: 'leader' } : null);
+      tr.innerHTML = '<td>' + (i + 1) + (i === 0 ? ' ★' : '') + '</td><td class="b">' + p.player +
+        '</td><td class="r muted">' + pctSmall(p.pWin) + '</td><td class="r muted">' + pctSmall(p.pRunner) +
+        '</td><td class="r b gold">£' + p.exp.toFixed(1) + '</td>';
+      tb.appendChild(tr);
+    });
+    t.appendChild(tb); panel.appendChild(t);
+    panel.appendChild(el('p', { class: 'muted small', style: 'margin:10px 2px 0' }, ['Elo from the bookmaker win % nudged by results; the remaining tournament is simulated to a winner & runner-up. Exp £ = P(win)×£80 + P(runner-up)×£20 · ' + data.proj.n.toLocaleString() + ' sims.']));
+    return panel;
+  }
 
   function koMatchEl(m) {
     var loser = m.pick === m.a ? m.b : m.a;
@@ -410,23 +439,8 @@
       root.appendChild(ep); return root;
     }
 
-    // Projected returns per player
-    var rp = el('div', { class: 'panel' });
-    rp.appendChild(el('h2', null, ['Projected Returns ',
-      el('span', { class: 'sub' }, ['Monte Carlo · ' + data.proj.n.toLocaleString() + ' sims'])]));
-    var t = el('table', { class: 'tbl' });
-    t.innerHTML = '<thead><tr><th>#</th><th>Player</th><th class="r">Win £80</th><th class="r">RU £20</th><th class="r">Exp £</th></tr></thead>';
-    var tb = el('tbody');
-    data.proj.players.forEach(function (p, i) {
-      var tr = el('tr', i === 0 ? { class: 'leader' } : null);
-      tr.innerHTML = '<td>' + (i + 1) + (i === 0 ? ' ★' : '') + '</td><td class="b">' + p.player +
-        '</td><td class="r muted">' + pctSmall(p.pWin) + '</td><td class="r muted">' + pctSmall(p.pRunner) +
-        '</td><td class="r b gold">£' + p.exp.toFixed(1) + '</td>';
-      tb.appendChild(tr);
-    });
-    t.appendChild(tb); rp.appendChild(t);
-    rp.appendChild(el('p', { class: 'muted small', style: 'margin:10px 2px 0' }, ['Each team’s Elo starts from the bookmaker win % and is nudged by results; the remaining tournament is simulated to a winner and runner-up. Expected £ = P(win)×£80 + P(runner-up)×£20.']));
-    root.appendChild(rp);
+    // Projected returns per player (shared with the dashboard)
+    root.appendChild(projectedReturnsPanel());
 
     // Title odds per team (model)
     var cp = el('div', { class: 'panel' });
