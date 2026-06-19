@@ -799,45 +799,35 @@
   }
 
   /* ---- TAB: Bracket (indicative, from current tables) --------------------- */
-  function bracketMatchEl(m, showFrom) {
-    function teamSpan(o, win) {
-      var kids = [flagEl(o.team), o.team];
-      if (showFrom && o.from) kids.push(el('span', { class: 'ko-from' }, [' ' + o.from]));
-      return el('span', { class: 'ko-team' + (win ? ' win' : ' muted') }, kids);
+  function bracketTieEl(short, t) {
+    function side(o, ref) {
+      if (ref) return el('span', { class: 'ko-team muted' }, [ref]);
+      if (!o) return el('span', { class: 'ko-team muted' }, ['TBD']);
+      return el('span', { class: 'ko-team' }, [flagEl(o.team), el('b', null, [o.team]), el('span', { class: 'ko-from' }, ['(' + o.from + ')'])]);
     }
-    if (m.bye) return el('div', { class: 'ko-match' }, [teamSpan(m.pick, true), el('span', { class: 'muted small' }, ['bye'])]);
-    var loser = m.pick === m.a ? m.b : m.a;
-    var score = m.pick === m.a ? (m.score[0] + '–' + m.score[1]) : (m.score[1] + '–' + m.score[0]);
     return el('div', { class: 'ko-match' }, [
-      teamSpan(m.pick, true),
-      el('span', { class: 'ko-score' }, [score + (m.pens ? ' p' : '')]),
-      teamSpan(loser, false),
-      el('span', { class: 'ko-pct muted' }, [Math.round(m.winPct * 100) + '%'])
+      el('span', { class: 'ko-game' }, [short + ' ' + t.game]),
+      side(t.a, t.aRef),
+      el('span', { class: 'ko-vs muted' }, ['v']),
+      side(t.b, t.bRef)
     ]);
   }
 
   function renderBracket() {
     var root = el('div', { class: 'projections' });
-    if (oddsState.status !== 'ok') {
-      var np = el('div', { class: 'panel' });
-      np.appendChild(el('h2', null, ['Knockout Bracket']));
-      np.appendChild(el('p', { class: 'empty' }, [oddsState.status === 'loading' ? 'Loading odds…' : 'Needs betting odds for the predictions — see the Winner Odds tab.']));
-      root.appendChild(np); return root;
-    }
-    var br = WC.Sim.currentBracket(Live.get(), oddsState.rows);
+    var br = WC.Sim.currentBracket(Live.get());
     var panel = el('div', { class: 'panel' });
     panel.appendChild(el('h2', null, ['Knockout Bracket ', el('span', { class: 'sub' }, ['indicative — from the current tables'])]));
-    if (!br) { panel.appendChild(el('p', { class: 'empty' }, ['Waiting on the group fixtures and odds.'])); root.appendChild(panel); return root; }
-    panel.appendChild(el('p', { class: 'muted small', style: 'margin:0 2px 12px' }, ['Built from the live group tables — current winners, runners-up and the best-8 third-placed teams, seeded by record, with each tie’s modelled result (p = penalties). The official Round-of-32 draw is only set once the group stage ends; this updates as results come in.']));
+    if (!br) { panel.appendChild(el('p', { class: 'empty' }, ['Waiting on the group fixtures.'])); root.appendChild(panel); return root; }
+    panel.appendChild(el('p', { class: 'muted small', style: 'margin:0 2px 12px' }, ['The Round of 32 from the live group tables — current winners, runners-up and the best-8 third-placed teams, seeded by record. Later rounds show the slot each tie feeds. The official draw is only set once the group stage ends; this updates as results come in.']));
     br.rounds.forEach(function (rnd, idx) {
-      var det = el('details', rnd.matches.length <= 8 ? { open: 'open' } : null);
+      var det = el('details', idx === 0 ? { open: 'open' } : null);
       det.appendChild(el('summary', null, [el('b', null, [rnd.name]),
-        el('span', { class: 'muted small' }, ['  ' + rnd.matches.length + (rnd.matches.length === 1 ? ' tie' : ' ties')])]));
+        el('span', { class: 'muted small' }, ['  ' + rnd.ties.length + (rnd.ties.length === 1 ? ' tie' : ' ties')])]));
       var list = el('div', { class: 'ko-round' });
-      rnd.matches.forEach(function (m) { list.appendChild(bracketMatchEl(m, idx === 0)); });
+      rnd.ties.forEach(function (t) { list.appendChild(bracketTieEl(rnd.short, t)); });
       det.appendChild(list); panel.appendChild(det);
     });
-    if (br.champion) panel.appendChild(el('div', { class: 'ko-champ' }, ['🏆 Projected winner: ', flagEl(br.champion.team), el('b', null, [br.champion.team])]));
     root.appendChild(panel);
     return root;
   }

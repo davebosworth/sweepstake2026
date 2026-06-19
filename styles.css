@@ -118,7 +118,9 @@ body {
 .ko-match { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; padding: 7px 10px; background: var(--card-2); border: 1px solid var(--border); border-radius: 8px; }
 .ko-team { display: inline-flex; align-items: center; min-width: 0; }
 .ko-team.win { color: var(--green); font-weight: bold; }
-.ko-from { color: var(--muted); font-weight: normal; font-size: 10px; margin-left: 4px; }
+.ko-from { color: var(--muted); font-weight: normal; font-size: 10px; margin-left: 5px; }
+.ko-game { color: var(--gold); font-weight: bold; font-size: 11px; min-width: 48px; flex: none; }
+.ko-vs { font-size: 11px; }
 .ko-score { color: var(--gold); font-weight: bold; white-space: nowrap; }
 .ko-pct { margin-left: auto; white-space: nowrap; }
 .ko-champ { margin-top: 14px; padding: 12px; background: var(--card-2); border: 1px solid var(--gold); border-radius: 10px; font-size: 16px; font-weight: bold; color: var(--gold); display: flex; align-items: center; gap: 4px; }
