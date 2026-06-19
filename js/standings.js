@@ -145,11 +145,111 @@
     return groups;
   }
 
+  // Map group letter -> array of that group's matches.
+  function matchesByGroup(state) {
+    var by = {};
+    state.matches.forEach(function (m) {
+      var g = /group\s+([a-l])\b/i.exec(m.group || '');
+      if (g && m.home && m.away) (by[g[1].toUpperCase()] = by[g[1].toUpperCase()] || []).push(m);
+    });
+    return by;
+  }
+
+  // Is every match in this group finished?
+  function groupComplete(matches) { return matches.length > 0 && matches.every(isFinished); }
+
+  /* Mathematical group-stage status per team: 'through' (guaranteed top 2),
+     'eliminated' (can't reach top 2 OR even 3rd in any remaining-result
+     scenario), or 'alive'. Brute-forces every remaining W/D/L combination in the
+     group (only a handful of games left, so a few hundred combos at most).
+     Ties are handled conservatively so we never wrongly declare a team out: a
+     team is "through" only if at most one other team can match/beat it in EVERY
+     scenario, and "eliminated" only if 3+ teams strictly beat it in EVERY
+     scenario. The best-8-thirds rule is cross-group, so a team that can still
+     finish 3rd is kept 'alive' rather than marked out. */
+  function groupStatus(state) {
+    var byGroup = matchesByGroup(state), status = {};
+    Object.keys(byGroup).forEach(function (key) {
+      var matches = byGroup[key];
+      var teamSet = {}; matches.forEach(function (m) { teamSet[m.home] = teamSet[m.away] = 1; });
+      var tlist = Object.keys(teamSet);
+
+      // Finished group: positions are settled (with GD), so read them directly.
+      if (groupComplete(matches)) {
+        var rec = {}; tlist.forEach(function (t) { rec[t] = { team: t, Pts: 0, GD: 0, GF: 0 }; });
+        matches.forEach(function (m) {
+          var H = rec[m.home], A = rec[m.away];
+          H.GF += m.homeScore; A.GF += m.awayScore; H.GD += m.homeScore - m.awayScore; A.GD += m.awayScore - m.homeScore;
+          if (m.homeScore > m.awayScore) H.Pts += 3; else if (m.homeScore < m.awayScore) A.Pts += 3; else { H.Pts++; A.Pts++; }
+        });
+        tlist.map(function (t) { return rec[t]; })
+          .sort(function (a, b) { return (b.Pts - a.Pts) || (b.GD - a.GD) || (b.GF - a.GF) || a.team.localeCompare(b.team); })
+          .forEach(function (r, i) { status[r.team] = i < 2 ? 'through' : (i === 2 ? 'alive' : 'eliminated'); });
+        return;
+      }
+
+      var base = {}; tlist.forEach(function (t) { base[t] = 0; });
+      var remaining = [];
+      matches.forEach(function (m) {
+        if (isFinished(m)) {
+          if (m.homeScore > m.awayScore) base[m.home] += 3;
+          else if (m.homeScore < m.awayScore) base[m.away] += 3;
+          else { base[m.home] += 1; base[m.away] += 1; }
+        } else { remaining.push(m); }   // scheduled or live = undecided
+      });
+      var k = remaining.length, combos = Math.pow(3, k);
+      var alwaysTop2 = {}, everTop3 = {};
+      tlist.forEach(function (t) { alwaysTop2[t] = true; everTop3[t] = false; });
+      for (var c = 0; c < combos; c++) {
+        var pts = {}; tlist.forEach(function (t) { pts[t] = base[t]; });
+        var cc = c;
+        for (var i = 0; i < k; i++) {
+          var o = cc % 3; cc = Math.floor(cc / 3); var m = remaining[i];
+          if (o === 0) pts[m.home] += 3; else if (o === 1) pts[m.away] += 3; else { pts[m.home] += 1; pts[m.away] += 1; }
+        }
+        tlist.forEach(function (t) {
+          var strictlyAbove = 0, othersGE = 0;
+          tlist.forEach(function (u) {
+            if (u === t) return;
+            if (pts[u] > pts[t]) strictlyAbove++;
+            if (pts[u] >= pts[t]) othersGE++;
+          });
+          if (othersGE > 1) alwaysTop2[t] = false;
+          if (strictlyAbove < 3) everTop3[t] = true;
+        });
+      }
+      tlist.forEach(function (t) {
+        status[t] = alwaysTop2[t] ? 'through' : (!everTop3[t] ? 'eliminated' : 'alive');
+      });
+    });
+    return status;
+  }
+
+  /* The race for the best-8 third-placed places. Takes each group's current
+     3rd-placed team, ranks them (Pts, GD, GF), and flags the top 8 as in the
+     provisional qualifying zone. `settled` marks teams whose group is finished. */
+  function thirdPlaceRace(state) {
+    var groups = groupTables(state), byGroup = matchesByGroup(state), thirds = [];
+    Object.keys(groups).forEach(function (g) {
+      if (g === 'Unassigned') return;
+      var row = groups[g].filter(function (r) { return r.pos === 3; })[0];
+      var letter = (/group\s+([a-l])/i.exec(g) || [])[1];
+      if (row) { row.settled = letter ? groupComplete(byGroup[letter.toUpperCase()] || []) : false; thirds.push(row); }
+    });
+    thirds.sort(function (a, b) {
+      return (b.Pts - a.Pts) || (b.GD - a.GD) || (b.GF - a.GF) || a.team.localeCompare(b.team);
+    });
+    thirds.forEach(function (r, i) { r.thirdRank = i + 1; r.qualifying = i < 8; });
+    return thirds;
+  }
+
   WC.Standings = {
     computeTeams: computeTeams,
     disciplinary: disciplinary,
     worstTeams: worstTeams,
     groupTables: groupTables,
+    groupStatus: groupStatus,
+    thirdPlaceRace: thirdPlaceRace,
     isFinished: isFinished,
     isCounting: isCounting
   };

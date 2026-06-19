@@ -135,6 +135,16 @@ body {
 .tbl.standings { font-size: 13px; }
 .tbl.standings th, .tbl.standings td { padding: 8px 6px; white-space: nowrap; }
 .tbl.standings .flag { margin-right: 5px; }
+/* qualification status on group tables + third-place race */
+.tbl.standings .qz-top { color: var(--green); font-weight: bold; }
+.tbl.standings .qz-third { color: var(--gold); font-weight: bold; }
+.tbl.standings tr.q-out td { opacity: 0.45; }
+.qbadge { font-size: 11px; }
+.q-ok { color: var(--green); }
+.q-no { color: var(--red); }
+.q-in-row td { background: rgba(55, 210, 122, 0.08); }
+.q-out-row td { color: var(--muted); }
+.q-cut td { text-align: center; color: var(--gold); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; padding: 4px; border-top: 1px dashed var(--gold); border-bottom: 1px dashed var(--gold); background: rgba(244,196,48,0.06); }
 .tbl .gold { color: var(--gold); }
 .tbl .red { color: var(--red); }
 .tbl tr.leader td { background: rgba(244, 196, 48, 0.10); }
