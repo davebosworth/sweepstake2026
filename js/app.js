@@ -789,12 +789,12 @@
       root.appendChild(standingsPanel(label, groups[keys[0]], status));
       return root;
     }
+    var race = S.thirdPlaceRace(st);
+    if (race.length) root.appendChild(thirdPlacePanel(race));
+
     var grid = el('div', { class: 'group-grid' });
     keys.forEach(function (g) { grid.appendChild(standingsPanel(g === 'Unassigned' ? 'Overall Table' : g, groups[g], status)); });
     root.appendChild(grid);
-
-    var race = S.thirdPlaceRace(st);
-    if (race.length) root.appendChild(thirdPlacePanel(race));
     return root;
   }
 
