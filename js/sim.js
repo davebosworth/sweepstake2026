@@ -209,6 +209,48 @@
     return { rounds: rounds, champion: cur[0], elo: elo };
   }
 
-  WC.Sim = { project: project, projectedBracket: projectedBracket, ratings: ratings, predict: predict, koPredict: koPredict };
+  /* ---- public: indicative bracket from the CURRENT group tables ----------- */
+  // Takes the live qualifiers (group winners, runners-up, best-8 thirds), seeds
+  // them by tier + record, and predicts every tie. Updates as the tables change.
+  // Not the official draw (that's only set when the groups finish) — indicative.
+  function currentBracket(state, oddsRows) {
+    var elo = ratings(state, oddsRows);
+    if (!elo) return null;
+    var groups = WC.Standings.groupTables(state);
+    function lab(g) { return (g || '').replace('Group ', ''); }
+    function rec(r, from) { return { team: r.team, Pts: r.Pts, GD: r.GD, GF: r.GF, from: from }; }
+    var winners = [], runners = [];
+    Object.keys(groups).forEach(function (g) {
+      if (g === 'Unassigned') return;
+      var rows = groups[g];
+      if (rows[0]) winners.push(rec(rows[0], 'Winner ' + lab(g)));
+      if (rows[1]) runners.push(rec(rows[1], 'Runner-up ' + lab(g)));
+    });
+    var thirds = WC.Standings.thirdPlaceRace(state).filter(function (r) { return r.qualifying; })
+      .map(function (r) { return rec(r, '3rd ' + lab(r.group)); });
+    if (winners.length + runners.length + thirds.length < 4) return null;
+    function byRec(a, b) { return (b.Pts - a.Pts) || (b.GD - a.GD) || (b.GF - a.GF) || a.team.localeCompare(b.team); }
+    winners.sort(byRec); runners.sort(byRec);   // thirds already ranked
+    var order = seedOrder(winners.concat(runners).concat(thirds));   // tier-seeded
+    var names = ['Round of 32', 'Round of 16', 'Quarter-finals', 'Semi-finals', 'Final'];
+    var rounds = [], cur = order, ri = 0;
+    while (cur.length > 1) {
+      var ms = [], next = [];
+      for (var i = 0; i < cur.length; i += 2) {
+        var a = cur[i], b = cur[i + 1];
+        if (!a && !b) { next.push(undefined); continue; }
+        if (!a || !b) { var only = a || b; ms.push({ a: only, b: null, pick: only, winPct: 1, score: [0, 0], bye: true }); next.push(only); continue; }
+        var p = koPredict(a.team, b.team, elo);
+        var pick = p.pick === a.team ? a : b;
+        ms.push({ a: a, b: b, pick: pick, winPct: p.winPct, score: p.score, pens: p.pens });
+        next.push(pick);
+      }
+      rounds.push({ name: names[ri] || ('Round ' + (ri + 1)), matches: ms });
+      cur = next; ri++;
+    }
+    return { rounds: rounds, champion: cur[0] };
+  }
+
+  WC.Sim = { project: project, projectedBracket: projectedBracket, currentBracket: currentBracket, ratings: ratings, predict: predict, koPredict: koPredict };
 
 })(window.WC = window.WC || {});
