@@ -209,40 +209,41 @@
     return { rounds: rounds, champion: cur[0], elo: elo };
   }
 
-  /* ---- public: indicative bracket from the CURRENT group tables ----------- */
-  // Takes the live qualifiers (group winners, runners-up, best-8 thirds), seeds
-  // them by tier + record into the Round of 32, and lays out the later rounds as
-  // slot references ("Winner of R32 game 1"). No predictions — structure only;
-  // updates as the tables change. Not the official draw (set when groups finish).
+  /* ---- public: official Round of 32 from the CURRENT group tables --------- */
+  // The 2026 Round of 32 is fixed by group letter (winner/runner-up pairings),
+  // with eight slots for the best third-placed teams — FIFA confirms exactly
+  // which third goes where only once the group stage finishes. We fill the
+  // winner/runner-up slots from the live tables; third slots show their eligible
+  // groups. Structure only, no predictions. Match numbers 73-88.
+  //   ['W', g] = winner of group g · ['R', g] = runner-up · ['T', [groups]] = best-third slot
+  var R32_DEF = [
+    { game: 73, a: ['R', 'A'], b: ['R', 'B'] },
+    { game: 74, a: ['W', 'E'], b: ['T', ['A', 'B', 'C', 'D', 'F']] },
+    { game: 75, a: ['W', 'F'], b: ['R', 'C'] },
+    { game: 76, a: ['W', 'C'], b: ['R', 'F'] },
+    { game: 77, a: ['W', 'I'], b: ['T', ['C', 'D', 'F', 'G', 'H']] },
+    { game: 78, a: ['R', 'E'], b: ['R', 'I'] },
+    { game: 79, a: ['W', 'A'], b: ['T', ['C', 'E', 'F', 'H', 'I']] },
+    { game: 80, a: ['W', 'L'], b: ['T', ['E', 'H', 'I', 'J', 'K']] },
+    { game: 81, a: ['W', 'D'], b: ['T', ['B', 'E', 'F', 'I', 'J']] },
+    { game: 82, a: ['W', 'G'], b: ['T', ['A', 'E', 'H', 'I', 'J']] },
+    { game: 83, a: ['R', 'K'], b: ['R', 'L'] },
+    { game: 84, a: ['W', 'H'], b: ['R', 'J'] },
+    { game: 85, a: ['W', 'B'], b: ['T', ['E', 'F', 'G', 'I', 'J']] },
+    { game: 86, a: ['R', 'D'], b: ['R', 'G'] },
+    { game: 87, a: ['W', 'K'], b: ['T', ['A', 'E', 'F', 'G', 'J']] },
+    { game: 88, a: ['W', 'J'], b: ['R', 'H'] }
+  ];
+
   function currentBracket(state) {
     var groups = WC.Standings.groupTables(state);
-    function lab(g) { return (g || '').replace('Group ', ''); }
-    function rec(r, from) { return { team: r.team, Pts: r.Pts, GD: r.GD, GF: r.GF, from: from }; }
-    var winners = [], runners = [];
-    Object.keys(groups).forEach(function (g) {
-      if (g === 'Unassigned') return;
-      var rows = groups[g];
-      if (rows[0]) winners.push(rec(rows[0], 'Winner of Group ' + lab(g)));
-      if (rows[1]) runners.push(rec(rows[1], 'Runner-up of Group ' + lab(g)));
-    });
-    var thirds = WC.Standings.thirdPlaceRace(state).filter(function (r) { return r.qualifying; })
-      .map(function (r) { return rec(r, '3rd in Group ' + lab(r.group)); });
-    if (winners.length + runners.length + thirds.length < 4) return null;
-    function byRec(a, b) { return (b.Pts - a.Pts) || (b.GD - a.GD) || (b.GF - a.GF) || a.team.localeCompare(b.team); }
-    winners.sort(byRec); runners.sort(byRec);   // thirds already ranked
-    var seeded = seedOrder(winners.concat(runners).concat(thirds));   // tier-seeded
-    var r32 = [];
-    for (var i = 0; i < seeded.length; i += 2) r32.push({ game: (i / 2) + 1, a: seeded[i], b: seeded[i + 1] });
-    var rounds = [{ name: 'Round of 32', short: 'R32', ties: r32 }];
-    var future = [['Round of 16', 'R16'], ['Quarter-finals', 'QF'], ['Semi-finals', 'SF'], ['Final', 'Final']];
-    var prevShort = 'R32', prevCount = r32.length;
-    future.forEach(function (nm) {
-      var cnt = Math.floor(prevCount / 2), ties = [];
-      for (var g = 1; g <= cnt; g++) ties.push({ game: g, aRef: 'Winner of ' + prevShort + ' game ' + (2 * g - 1), bRef: 'Winner of ' + prevShort + ' game ' + (2 * g) });
-      rounds.push({ name: nm[0], short: nm[1], ties: ties });
-      prevShort = nm[1]; prevCount = cnt;
-    });
-    return { rounds: rounds };
+    function slot(def) {
+      var type = def[0], g = def[1];
+      if (type === 'T') return { third: true, groups: g, from: 'Best 3rd: ' + g.join('/') };
+      var rows = groups['Group ' + g], r = rows && rows[type === 'W' ? 0 : 1];
+      return { team: r ? r.team : null, from: (type === 'W' ? 'Winner of Group ' : 'Runner-up of Group ') + g };
+    }
+    return { ties: R32_DEF.map(function (m) { return { game: m.game, a: slot(m.a), b: slot(m.b) }; }) };
   }
 
   WC.Sim = { project: project, projectedBracket: projectedBracket, currentBracket: currentBracket, ratings: ratings, predict: predict, koPredict: koPredict };

@@ -812,17 +812,16 @@
   }
 
   /* ---- TAB: Bracket (indicative, from current tables) --------------------- */
-  function bracketTieEl(short, t) {
-    function side(o, ref) {
-      if (ref) return el('span', { class: 'ko-team muted' }, [ref]);
-      if (!o) return el('span', { class: 'ko-team muted' }, ['TBD']);
-      return el('span', { class: 'ko-team' }, [flagEl(o.team), el('b', null, [o.team]), el('span', { class: 'ko-from' }, ['(' + o.from + ')'])]);
-    }
+  function bracketSide(o) {
+    if (o.third || !o.team) return el('span', { class: 'ko-team muted' }, [o.from]);  // third slot, or not-yet-filled
+    return el('span', { class: 'ko-team' }, [flagEl(o.team), el('b', null, [o.team]), el('span', { class: 'ko-from' }, ['(' + o.from + ')'])]);
+  }
+  function bracketTieEl(t) {
     return el('div', { class: 'ko-match' }, [
-      el('span', { class: 'ko-game' }, [short + ' ' + t.game]),
-      side(t.a, t.aRef),
+      el('span', { class: 'ko-game' }, ['Match ' + t.game]),
+      bracketSide(t.a),
       el('span', { class: 'ko-vs muted' }, ['v']),
-      side(t.b, t.bRef)
+      bracketSide(t.b)
     ]);
   }
 
@@ -830,17 +829,13 @@
     var root = el('div', { class: 'projections' });
     var br = WC.Sim.currentBracket(Live.get());
     var panel = el('div', { class: 'panel' });
-    panel.appendChild(el('h2', null, ['Knockout Bracket ', el('span', { class: 'sub' }, ['indicative — from the current tables'])]));
+    panel.appendChild(el('h2', null, ['Knockout Bracket ', el('span', { class: 'sub' }, ['Round of 32 · official draw structure'])]));
     if (!br) { panel.appendChild(el('p', { class: 'empty' }, ['Waiting on the group fixtures.'])); root.appendChild(panel); return root; }
-    panel.appendChild(el('p', { class: 'muted small', style: 'margin:0 2px 12px' }, ['The Round of 32 from the live group tables — current winners, runners-up and the best-8 third-placed teams, seeded by record. Later rounds show the slot each tie feeds. The official draw is only set once the group stage ends; this updates as results come in.']));
-    br.rounds.forEach(function (rnd, idx) {
-      var det = el('details', idx === 0 ? { open: 'open' } : null);
-      det.appendChild(el('summary', null, [el('b', null, [rnd.name]),
-        el('span', { class: 'muted small' }, ['  ' + rnd.ties.length + (rnd.ties.length === 1 ? ' tie' : ' ties')])]));
-      var list = el('div', { class: 'ko-round' });
-      rnd.ties.forEach(function (t) { list.appendChild(bracketTieEl(rnd.short, t)); });
-      det.appendChild(list); panel.appendChild(det);
-    });
+    panel.appendChild(el('p', { class: 'muted small', style: 'margin:0 2px 12px' }, ['The official Round-of-32 fixtures (fixed by group letter), filled from the live tables — current group winners and runners-up, with where they qualified. The eight best third-placed teams fill the marked slots; FIFA confirms which third goes where once the group stage ends. Updates as results come in.']));
+    var list = el('div', { class: 'ko-round' });
+    br.ties.forEach(function (t) { list.appendChild(bracketTieEl(t)); });
+    panel.appendChild(list);
+    panel.appendChild(el('p', { class: 'muted small', style: 'margin:12px 2px 0' }, ['Round of 16 onward is set once the Round of 32 line-up is confirmed.']));
     root.appendChild(panel);
     return root;
   }
