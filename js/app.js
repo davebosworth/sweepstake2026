@@ -847,6 +847,7 @@
 
   /* ---- TAB: Allocations --------------------------------------------------- */
   function renderAllocations() {
+    var status = S.groupStatus(Live.get());
     var root = el('div', { class: 'panel' });
     root.appendChild(el('h2', null, ['Team Allocations']));
     var t = el('table', { class: 'tbl alloc' });
@@ -854,10 +855,14 @@
     var tb = el('tbody');
     WC.PLAYERS.forEach(function (p) {
       var tr = el('tr');
-      tr.innerHTML = '<td class="b gold">' + p.name + '</td>' + p.teams.map(function (t) { return '<td>' + WC.flagHTML(t) + t + '</td>'; }).join('');
+      tr.innerHTML = '<td class="b gold">' + p.name + '</td>' + p.teams.map(function (t) {
+        var out = status[t] === 'eliminated';
+        return '<td class="' + (out ? 'team-out' : '') + '">' + WC.flagHTML(t) + t + (out ? ' <span class="qbadge q-no">✗</span>' : '') + '</td>';
+      }).join('');
       tb.appendChild(tr);
     });
     t.appendChild(tb); root.appendChild(t);
+    root.appendChild(el('p', { class: 'muted small', style: 'margin:10px 2px 0' }, ['Greyed-out teams have been knocked out of the group stage.']));
     return root;
   }
 

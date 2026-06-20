@@ -143,6 +143,9 @@ body {
 .tbl.standings .qz-third { color: var(--gold); font-weight: bold; }
 .tbl.standings tr.q-out td { opacity: 0.45; }
 .qbadge { font-size: 11px; }
+.team-out { opacity: 0.4; }
+.team-out, .team-out b { text-decoration: line-through; }
+.team-out .qbadge { text-decoration: none; }
 .q-ok { color: var(--green); }
 .q-no { color: var(--red); }
 .q-in-row td { background: rgba(55, 210, 122, 0.08); }
