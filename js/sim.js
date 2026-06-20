@@ -235,15 +235,51 @@
     { game: 88, a: ['W', 'J'], b: ['R', 'H'] }
   ];
 
+  // Assign the qualifying third-placed groups to the third slots respecting each
+  // slot's eligible groups — a bipartite matching (Kuhn's augmenting paths).
+  // Returns an array parallel to `slots`: the group letter filling each, or null.
+  function matchThirds(slots, qualGroups) {
+    var qset = {}; qualGroups.forEach(function (g) { qset[g] = 1; });
+    var matchG = {};
+    function aug(si, visited) {
+      for (var k = 0; k < slots[si].groups.length; k++) {
+        var g = slots[si].groups[k];
+        if (!qset[g] || visited[g]) continue;
+        visited[g] = 1;
+        if (matchG[g] === undefined || aug(matchG[g], visited)) { matchG[g] = si; return true; }
+      }
+      return false;
+    }
+    for (var si = 0; si < slots.length; si++) aug(si, {});
+    var out = slots.map(function () { return null; });
+    Object.keys(matchG).forEach(function (g) { out[matchG[g]] = g; });
+    return out;
+  }
+
   function currentBracket(state) {
     var groups = WC.Standings.groupTables(state);
-    function slot(def) {
+    function lab(g) { return (g || '').replace('Group ', ''); }
+    // Current top-8 thirds and which group each comes from.
+    var qThirds = WC.Standings.thirdPlaceRace(state).filter(function (r) { return r.qualifying; });
+    var thirdTeam = {}; qThirds.forEach(function (r) { thirdTeam[lab(r.group)] = r.team; });
+    var qualGroups = qThirds.map(function (r) { return lab(r.group); });
+    // Third slots in fixed order, then assign the current thirds to them.
+    var tslots = [];
+    R32_DEF.forEach(function (m) { ['a', 'b'].forEach(function (s) { if (m[s][0] === 'T') tslots.push({ key: m.game + s, groups: m[s][1] }); }); });
+    var slotGroup = matchThirds(tslots, qualGroups);
+    var assigned = {}; tslots.forEach(function (s, i) { if (slotGroup[i]) assigned[s.key] = slotGroup[i]; });
+
+    function slot(def, key) {
       var type = def[0], g = def[1];
-      if (type === 'T') return { third: true, groups: g, from: 'Best 3rd: ' + g.join('/') };
+      if (type === 'T') {
+        var ag = assigned[key];
+        if (ag && thirdTeam[ag]) return { third: true, groups: g, team: thirdTeam[ag], from: '3rd in Group ' + ag };
+        return { third: true, groups: g, from: 'Best 3rd: ' + g.join('/') };
+      }
       var rows = groups['Group ' + g], r = rows && rows[type === 'W' ? 0 : 1];
       return { team: r ? r.team : null, from: (type === 'W' ? 'Winner of Group ' : 'Runner-up of Group ') + g };
     }
-    return { ties: R32_DEF.map(function (m) { return { game: m.game, a: slot(m.a), b: slot(m.b) }; }) };
+    return { ties: R32_DEF.map(function (m) { return { game: m.game, a: slot(m.a, m.game + 'a'), b: slot(m.b, m.game + 'b') }; }) };
   }
 
   WC.Sim = { project: project, projectedBracket: projectedBracket, currentBracket: currentBracket, ratings: ratings, predict: predict, koPredict: koPredict };

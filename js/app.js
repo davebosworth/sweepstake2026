@@ -813,8 +813,8 @@
 
   /* ---- TAB: Bracket (indicative, from current tables) --------------------- */
   function bracketSide(o) {
-    if (o.third || !o.team) return el('span', { class: 'ko-team muted' }, [o.from]);  // third slot, or not-yet-filled
-    return el('span', { class: 'ko-team' }, [flagEl(o.team), el('b', null, [o.team]), el('span', { class: 'ko-from' }, ['(' + o.from + ')'])]);
+    if (!o.team) return el('span', { class: 'ko-team muted' }, [o.from]);  // not filled yet
+    return el('span', { class: 'ko-team' + (o.third ? ' ko-third' : '') }, [flagEl(o.team), el('b', null, [o.team]), el('span', { class: 'ko-from' }, ['(' + o.from + ')'])]);
   }
   function bracketTieEl(t) {
     return el('div', { class: 'ko-match' }, [
@@ -831,7 +831,7 @@
     var panel = el('div', { class: 'panel' });
     panel.appendChild(el('h2', null, ['Knockout Bracket ', el('span', { class: 'sub' }, ['Round of 32 · official draw structure'])]));
     if (!br) { panel.appendChild(el('p', { class: 'empty' }, ['Waiting on the group fixtures.'])); root.appendChild(panel); return root; }
-    panel.appendChild(el('p', { class: 'muted small', style: 'margin:0 2px 12px' }, ['The official Round-of-32 fixtures (fixed by group letter), filled from the live tables — current group winners and runners-up, with where they qualified. The eight best third-placed teams fill the marked slots; FIFA confirms which third goes where once the group stage ends. Updates as results come in.']));
+    panel.appendChild(el('p', { class: 'muted small', style: 'margin:0 2px 12px' }, ['The official Round-of-32 fixtures (fixed by group letter), filled “as it stands” from the live tables — current group winners, runners-up and the eight best third-placed teams placed into their eligible slots. Third-place slot assignments are indicative until the group stage ends. Updates as results come in.']));
     var list = el('div', { class: 'ko-round' });
     br.ties.forEach(function (t) { list.appendChild(bracketTieEl(t)); });
     panel.appendChild(list);

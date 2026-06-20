@@ -119,6 +119,7 @@ body {
 .ko-team { display: inline-flex; align-items: center; min-width: 0; }
 .ko-team.win { color: var(--green); font-weight: bold; }
 .ko-from { color: var(--muted); font-weight: normal; font-size: 10px; margin-left: 5px; }
+.ko-third b { color: var(--gold); }
 .ko-game { color: var(--gold); font-weight: bold; font-size: 11px; min-width: 48px; flex: none; }
 .ko-vs { font-size: 11px; }
 .ko-score { color: var(--gold); font-weight: bold; white-space: nowrap; }
