@@ -55,6 +55,19 @@
 
     var root = el('div');
 
+    // Knocked Out — teams eliminated by the latest day's results.
+    var lastDay = st.matches.filter(S.isFinished).reduce(function (mx, m) { return (m.date && m.date > mx) ? m.date : mx; }, '');
+    var newlyOut = lastDay ? S.newlyEliminated(st, lastDay) : [];
+    if (newlyOut.length) {
+      var ko = el('div', { class: 'panel ko-card' });
+      ko.appendChild(el('h2', null, ['Knocked Out ', el('span', { class: 'sub' }, ['eliminated by the latest results'])]));
+      newlyOut.forEach(function (team) {
+        ko.appendChild(el('div', { class: 'ko-out-row' }, [flagEl(team), el('b', null, [team]),
+          el('span', { class: 'muted' }, [' · ' + WC.ownerOf(team)])]));
+      });
+      root.appendChild(ko);
+    }
+
     var liveNow = st.matches.filter(function (m) { return m.status === 'live'; }).sort(byKickoff);
     if (liveNow.length) {
       var lp = el('div', { class: 'panel live-panel' });

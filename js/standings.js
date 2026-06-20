@@ -363,6 +363,28 @@
     return thirds;
   }
 
+  // Teams eliminated using only results up to and including `cutoff` (YYYY-MM-DD);
+  // matches dated after the cutoff are treated as not-yet-played.
+  function eliminatedAsOf(state, cutoff) {
+    var matches = state.matches.map(function (m) {
+      if (cutoff && m.date && m.date > cutoff) {
+        return { _espnId: m._espnId, group: m.group, home: m.home, away: m.away, date: m.date, status: 'scheduled', homeScore: null, awayScore: null };
+      }
+      return m;
+    });
+    var st = groupStatus({ matches: matches });
+    return Object.keys(st).filter(function (t) { return st[t] === 'eliminated'; });
+  }
+
+  // Teams whose elimination became certain ON `day` (out as of `day`, but not as
+  // of the day before) — i.e. knocked out by that day's results.
+  function newlyEliminated(state, day) {
+    if (!day) return [];
+    var d = new Date(day + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - 1);
+    var before = {}; eliminatedAsOf(state, d.toISOString().slice(0, 10)).forEach(function (t) { before[t] = 1; });
+    return eliminatedAsOf(state, day).filter(function (t) { return !before[t]; });
+  }
+
   WC.Standings = {
     computeTeams: computeTeams,
     disciplinary: disciplinary,
@@ -370,6 +392,8 @@
     groupTables: groupTables,
     groupStatus: groupStatus,
     thirdPlaceRace: thirdPlaceRace,
+    eliminatedAsOf: eliminatedAsOf,
+    newlyEliminated: newlyEliminated,
     isFinished: isFinished,
     isCounting: isCounting
   };

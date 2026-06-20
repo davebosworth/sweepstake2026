@@ -373,6 +373,23 @@
     }
     y += 14;
 
+    // -- Knocked Out (teams eliminated by yesterday's / today's results) --
+    var koTeams = [];
+    [yDate, reportDate].forEach(function (d) {
+      WC.Standings.newlyEliminated(state, d).forEach(function (t) { if (koTeams.indexOf(t) === -1) koTeams.push(t); });
+    });
+    if (koTeams.length) {
+      y = sectionHeading(parts, y, 'Knocked Out') + 8;
+      var koH = koTeams.length * 40 + 26;
+      card(parts, y, koH);
+      koTeams.forEach(function (t, i) {
+        var ry = y + 38 + i * 40;
+        parts.push(text(M + PAD, ry, t, { fill: T.white, size: 28, weight: 'bold' }));
+        parts.push(text(M + CW - PAD, ry, 'OUT · ' + WC.ownerOf(t), { fill: T.red, size: 24, weight: 'bold', anchor: 'end' }));
+      });
+      y += koH + 34;
+    }
+
     // -- Today's Fixtures --
     y = sectionHeading(parts, y, "Today's Fixtures") + 8;
     if (fixtures.length) {
