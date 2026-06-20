@@ -159,16 +159,22 @@
   function groupComplete(matches) { return matches.length > 0 && matches.every(isFinished); }
 
   /* Mathematical group-stage status per team: 'through' (guaranteed top 2),
-     'eliminated' (can't reach top 2 OR even 3rd in any remaining-result
-     scenario), or 'alive'. Brute-forces every remaining W/D/L combination in the
-     group (only a handful of games left, so a few hundred combos at most).
-     Ties are handled conservatively so we never wrongly declare a team out: a
-     team is "through" only if at most one other team can match/beat it in EVERY
-     scenario, and "eliminated" only if 3+ teams strictly beat it in EVERY
-     scenario. The best-8-thirds rule is cross-group, so a team that can still
-     finish 3rd is kept 'alive' rather than marked out. */
+     'eliminated' (can't reach the knockouts), or 'alive'. Two parts:
+
+     1. Within-group: brute-force every remaining W/D/L combination (only a
+        handful of games left). A team is 'through' if at most one other team can
+        match/beat it in EVERY scenario; provisionally eliminated if it can't even
+        finish 3rd in any scenario. Completed groups read final positions with GD.
+
+     2. Best-8-thirds (cross-group): a team that can't finish top 2 is also out if
+        at least 8 OTHER groups' third-placed teams are GUARANTEED more points than
+        this team's best-possible total — it then can't be one of the 8 qualifying
+        thirds. Strict points comparison only, so it never wrongly eliminates. */
   function groupStatus(state) {
     var byGroup = matchesByGroup(state), status = {};
+    var meta = {};       // team -> { group, maxPts, everTop2 }
+    var minThird = {};   // group -> guaranteed-minimum points of its eventual 3rd team
+
     Object.keys(byGroup).forEach(function (key) {
       var matches = byGroup[key];
       var teamSet = {}; matches.forEach(function (m) { teamSet[m.home] = teamSet[m.away] = 1; });
@@ -182,9 +188,13 @@
           H.GF += m.homeScore; A.GF += m.awayScore; H.GD += m.homeScore - m.awayScore; A.GD += m.awayScore - m.homeScore;
           if (m.homeScore > m.awayScore) H.Pts += 3; else if (m.homeScore < m.awayScore) A.Pts += 3; else { H.Pts++; A.Pts++; }
         });
-        tlist.map(function (t) { return rec[t]; })
-          .sort(function (a, b) { return (b.Pts - a.Pts) || (b.GD - a.GD) || (b.GF - a.GF) || a.team.localeCompare(b.team); })
-          .forEach(function (r, i) { status[r.team] = i < 2 ? 'through' : (i === 2 ? 'alive' : 'eliminated'); });
+        var sorted = tlist.map(function (t) { return rec[t]; })
+          .sort(function (a, b) { return (b.Pts - a.Pts) || (b.GD - a.GD) || (b.GF - a.GF) || a.team.localeCompare(b.team); });
+        sorted.forEach(function (r, i) {
+          status[r.team] = i < 2 ? 'through' : (i === 2 ? 'alive' : 'eliminated');
+          meta[r.team] = { group: key, maxPts: r.Pts, everTop2: i < 2 };
+        });
+        minThird[key] = sorted[2] ? sorted[2].Pts : 0;
         return;
       }
 
@@ -198,8 +208,8 @@
         } else { remaining.push(m); }   // scheduled or live = undecided
       });
       var k = remaining.length, combos = Math.pow(3, k);
-      var alwaysTop2 = {}, everTop3 = {};
-      tlist.forEach(function (t) { alwaysTop2[t] = true; everTop3[t] = false; });
+      var alwaysTop2 = {}, everTop2 = {}, everTop3 = {}, maxPts = {}, minThirdPts = Infinity;
+      tlist.forEach(function (t) { alwaysTop2[t] = true; everTop2[t] = false; everTop3[t] = false; maxPts[t] = 0; });
       for (var c = 0; c < combos; c++) {
         var pts = {}; tlist.forEach(function (t) { pts[t] = base[t]; });
         var cc = c;
@@ -207,7 +217,10 @@
           var o = cc % 3; cc = Math.floor(cc / 3); var m = remaining[i];
           if (o === 0) pts[m.home] += 3; else if (o === 1) pts[m.away] += 3; else { pts[m.home] += 1; pts[m.away] += 1; }
         }
+        var ordered = tlist.map(function (t) { return pts[t]; }).sort(function (a, b) { return b - a; });
+        if (ordered[2] != null && ordered[2] < minThirdPts) minThirdPts = ordered[2];
         tlist.forEach(function (t) {
+          if (pts[t] > maxPts[t]) maxPts[t] = pts[t];
           var strictlyAbove = 0, othersGE = 0;
           tlist.forEach(function (u) {
             if (u === t) return;
@@ -215,13 +228,28 @@
             if (pts[u] >= pts[t]) othersGE++;
           });
           if (othersGE > 1) alwaysTop2[t] = false;
+          if (othersGE <= 1) everTop2[t] = true;
           if (strictlyAbove < 3) everTop3[t] = true;
         });
       }
+      minThird[key] = isFinite(minThirdPts) ? minThirdPts : 0;
       tlist.forEach(function (t) {
         status[t] = alwaysTop2[t] ? 'through' : (!everTop3[t] ? 'eliminated' : 'alive');
+        meta[t] = { group: key, maxPts: maxPts[t], everTop2: everTop2[t] };
       });
     });
+
+    // Best-8-thirds elimination: an 'alive' team that can't make top 2 is out if
+    // 8+ other groups' thirds are guaranteed to out-point its best-possible total.
+    var groupKeys = Object.keys(minThird);
+    Object.keys(meta).forEach(function (t) {
+      var m = meta[t];
+      if (status[t] !== 'alive' || m.everTop2) return;
+      var betterThirds = 0;
+      groupKeys.forEach(function (g) { if (g !== m.group && minThird[g] > m.maxPts) betterThirds++; });
+      if (betterThirds >= 8) status[t] = 'eliminated';
+    });
+
     return status;
   }
 
