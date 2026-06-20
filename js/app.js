@@ -473,7 +473,7 @@
     if (data.bracket) {
       var kp = el('div', { class: 'panel' });
       kp.appendChild(el('h2', null, ['Knockout Predictor ', el('span', { class: 'sub' }, ['projected bracket'])]));
-      kp.appendChild(el('p', { class: 'muted small', style: 'margin:0 2px 12px' }, ['Most-likely qualifiers, seeded by rating, with each tie’s modelled result (p = decided on penalties). Firms up as group results land.']));
+      kp.appendChild(el('p', { class: 'muted small', style: 'margin:0 2px 12px' }, ['Most-likely qualifiers dropped into the official 2026 bracket, with each tie’s modelled result (p = decided on penalties). Firms up as group results land.']));
       data.bracket.rounds.forEach(function (rnd) {
         var det = el('details', rnd.matches.length <= 8 ? { open: 'open' } : null);
         det.appendChild(el('summary', null, [el('b', null, [rnd.name]),

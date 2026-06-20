@@ -8,9 +8,11 @@
  *  - A match is modelled with Poisson goals whose supremacy comes from the Elo
  *    gap; this gives win/draw/loss probabilities and a likely scoreline.
  *  - Each simulation plays out the remaining group games to final standings,
- *    qualifies the top two per group plus the eight best third-placed teams,
- *    seeds them by rating into a 32-team knockout, and plays to a champion and
- *    runner-up (knockout draws go to a rating-weighted shootout).
+ *    qualifies the top two per group plus the eight best third-placed teams, and
+ *    drops them into the official 2026 Round-of-32 map (winner/runner-up slots are
+ *    fixed by group; the eight thirds are assigned to their eligible slots), then
+ *    plays the real bracket tree to a champion and runner-up (knockout draws go to
+ *    a rating-weighted shootout).
  *  - Run many times -> each team's champion % and runner-up %, and each
  *    player's expected return from the £80 winner and £20 runner-up prizes.
  *  - A single most-likely pass builds the projected bracket the predictor shows.
@@ -118,42 +120,52 @@
       return b.Pts - a.Pts || b.GD - a.GD || b.GF - a.GF || (elo[b.team] - elo[a.team]);
     });
   }
-  // 32 qualifiers: top 2 per group + 8 best third-placed.
-  function qualifiers(byGroup, elo, decide) {
-    var qs = [], thirds = [];
+  /* ---- official bracket: build the Round-of-32 ties ----------------------- */
+  // Top 2 per group fill the winner/runner-up slots; the eight best third-placed
+  // teams are assigned to the third slots by FIFA's eligible-group rule (a
+  // bipartite matching). Returns the 16 ties as team-name pairs following the
+  // official 2026 match map (R32_DEF). `decide(home,away)` settles unplayed games.
+  function buildR32(byGroup, elo, decide) {
+    var order = {}, thirds = [];
     Object.keys(byGroup).forEach(function (k) {
       var tbl = groupTable(byGroup[k], elo, decide);
-      if (tbl[0]) qs.push(tbl[0]); if (tbl[1]) qs.push(tbl[1]); if (tbl[2]) thirds.push(tbl[2]);
+      order[k] = tbl.map(function (r) { return r.team; });
+      if (tbl[2]) thirds.push({ group: k, row: tbl[2] });
     });
-    thirds.sort(function (a, b) { return b.Pts - a.Pts || b.GD - a.GD || b.GF - a.GF || (elo[b.team] - elo[a.team]); });
-    return qs.concat(thirds.slice(0, 8)).map(function (r) { return r.team; });
+    thirds.sort(function (a, b) { return b.row.Pts - a.row.Pts || b.row.GD - a.row.GD || b.row.GF - a.row.GF || (elo[b.row.team] - elo[a.row.team]); });
+    var qThirds = thirds.slice(0, 8), thirdGroups = qThirds.map(function (x) { return x.group; });
+    var thirdTeam = {}; qThirds.forEach(function (x) { thirdTeam[x.group] = x.row.team; });
+    var tslots = [];
+    R32_DEF.forEach(function (m) { ['a', 'b'].forEach(function (s) { if (m[s][0] === 'T') tslots.push({ key: m.game + s, groups: m[s][1] }); }); });
+    var slotGroup = matchThirds(tslots, thirdGroups), assigned = {};
+    tslots.forEach(function (s, i) { if (slotGroup[i]) assigned[s.key] = slotGroup[i]; });
+    function team(def, key) {
+      if (def[0] === 'T') { var ag = assigned[key]; return ag ? thirdTeam[ag] : null; }
+      return (order[def[1]] || [])[def[0] === 'W' ? 0 : 1] || null;
+    }
+    return R32_DEF.map(function (m) { return { game: m.game, a: team(m.a, m.game + 'a'), b: team(m.b, m.game + 'b') }; });
   }
 
-  /* ---- bracket seeding ---------------------------------------------------- */
-  // Standard seeding order so the strongest teams are spread across the bracket.
-  function seedOrder(teams) {
-    var n = 1; while (n < teams.length) n *= 2;          // next power of two
-    var seeds = [1];
-    while (seeds.length < n) {
-      var rounds = seeds.length * 2, next = [];
-      seeds.forEach(function (s) { next.push(s); next.push(rounds + 1 - s); });
-      seeds = next;
-    }
-    return seeds.map(function (s) { return teams[s - 1]; });   // undefined => bye
+  // Play the official knockout tree from the 16 R32 ties. `decide(a,b)` returns
+  // { winner, loser, m } (m = an optional koPredict detail for display). The
+  // W##/L## references in LATER_DEF are resolved in dependency order, so every
+  // match's winner, loser and detail are produced — the champion is the winner of
+  // the final (match 104), the runner-up its loser.
+  function playTree(r32, decide) {
+    var winner = {}, loser = {}, detail = {};
+    function run(game, a, b) { var d = decide(a, b); winner[game] = d.winner; loser[game] = d.loser; detail[game] = d.m; }
+    r32.forEach(function (t) { run(t.game, t.a, t.b); });
+    function ref(code) { var g = code.slice(1); return code[0] === 'W' ? winner[g] : loser[g]; }
+    LATER_DEF.forEach(function (rd) { rd.ties.forEach(function (t) { run(t.game, ref(t.a), ref(t.b)); }); });
+    return { winner: winner, loser: loser, detail: detail };
   }
 
   /* ---- one simulation ----------------------------------------------------- */
   function simOnce(byGroup, elo) {
     var sampleDecide = function (h, a) { var l = lambdas(elo[h], elo[a]); return [samplePoisson(l[0]), samplePoisson(l[1])]; };
-    var qs = qualifiers(byGroup, elo, sampleDecide);
-    var round = seedOrder(qs.slice().sort(function (a, b) { return elo[b] - elo[a]; }));
-    while (round.length > 2) {
-      var next = [];
-      for (var i = 0; i < round.length; i += 2) next.push(koWinner(round[i], round[i + 1], elo));
-      round = next;
-    }
-    var champ = koWinner(round[0], round[1], elo);
-    return { champion: champ, runnerUp: champ === round[0] ? round[1] : round[0] };
+    var r32 = buildR32(byGroup, elo, sampleDecide);
+    var res = playTree(r32, function (a, b) { var w = koWinner(a, b, elo); return { winner: w, loser: w === a ? b : a, m: null }; });
+    return { champion: res.winner[104], runnerUp: res.loser[104] };
   }
 
   /* ---- public: projections ------------------------------------------------ */
@@ -193,20 +205,18 @@
       if (p.away >= p.draw && p.away >= p.home) return p.score[0] === p.score[1] ? [p.score[0], p.score[1] + 1] : p.score;
       return [p.score[0], p.score[1]];   // draw
     };
-    var qs = qualifiers(byGroup, elo, decide);
-    var order = seedOrder(qs.slice().sort(function (a, b) { return elo[b] - elo[a]; }));
-    var names = ['Round of 32', 'Round of 16', 'Quarter-finals', 'Semi-finals', 'Final'];
-    var rounds = [], cur = order, ri = 0;
-    while (cur.length > 1) {
-      var ms = [], next = [];
-      for (var i = 0; i < cur.length; i += 2) {
-        var m = koPredict(cur[i], cur[i + 1], elo);
-        ms.push(m); next.push(m.pick);
+    var r32 = buildR32(byGroup, elo, decide);
+    var res = playTree(r32, function (a, b) {
+      if (a == null || b == null) {
+        var w = a == null ? b : a;
+        return { winner: w, loser: a == null ? a : b, m: { a: a, b: b, pick: w, winPct: 1, score: [0, 0], pens: false } };
       }
-      rounds.push({ name: names[ri] || ('Round ' + (ri + 1)), matches: ms });
-      cur = next; ri++;
-    }
-    return { rounds: rounds, champion: cur[0], elo: elo };
+      var m = koPredict(a, b, elo);
+      return { winner: m.pick, loser: m.pick === a ? b : a, m: m };
+    });
+    var rounds = [{ name: 'Round of 32', matches: r32.map(function (t) { return res.detail[t.game]; }) }];
+    LATER_DEF.forEach(function (rd) { rounds.push({ name: rd.round, matches: rd.ties.map(function (t) { return res.detail[t.game]; }) }); });
+    return { rounds: rounds, champion: res.winner[104], elo: elo };
   }
 
   /* ---- public: official Round of 32 from the CURRENT group tables --------- */
