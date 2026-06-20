@@ -126,23 +126,70 @@
     return cut;
   }
 
-  // Full group league tables, keyed by group label and ranked normally
-  // (most points, GD, GF). Used by the Standings tab.
+  // 2026 group tiebreakers, in order, once teams are level on points:
+  //   1-3. head-to-head among the tied teams (points, then GD, then goals)
+  //        — re-applied to any still-level subset, exclusively on their games;
+  //   4-5. overall goal difference, then overall goals;
+  //   6.   fair-play / conduct (approximated by our card points, fewer = better);
+  //   then alphabetical (we can't do FIFA ranking / drawing of lots).
+  function compareOverall(a, b) {
+    return (b.GD - a.GD) || (b.GF - a.GF) || ((a.cardPoints || 0) - (b.cardPoints || 0)) || a.team.localeCompare(b.team);
+  }
+  // Mini head-to-head table among a set of tied teams (only games between them).
+  function h2hTable(teams, matches) {
+    var set = {}, mini = {};
+    teams.forEach(function (t) { set[t.team] = 1; mini[t.team] = { p: 0, gd: 0, gf: 0 }; });
+    matches.forEach(function (m) {
+      if (!isFinished(m) || !set[m.home] || !set[m.away]) return;
+      var H = mini[m.home], A = mini[m.away];
+      H.gf += m.homeScore; A.gf += m.awayScore; H.gd += m.homeScore - m.awayScore; A.gd += m.awayScore - m.homeScore;
+      if (m.homeScore > m.awayScore) H.p += 3; else if (m.homeScore < m.awayScore) A.p += 3; else { H.p++; A.p++; }
+    });
+    return mini;
+  }
+  // Order a set of teams already level on points, applying head-to-head first.
+  function rankCluster(teams, matches) {
+    if (teams.length <= 1) return teams.slice();
+    var h = h2hTable(teams, matches);
+    var sorted = teams.slice().sort(function (a, b) {
+      var x = h[a.team], y = h[b.team];
+      return (y.p - x.p) || (y.gd - x.gd) || (y.gf - x.gf);
+    });
+    var out = [], i = 0;
+    while (i < sorted.length) {
+      var j = i + 1, hi = h[sorted[i].team];
+      while (j < sorted.length) { var hj = h[sorted[j].team]; if (hj.p !== hi.p || hj.gd !== hi.gd || hj.gf !== hi.gf) break; j++; }
+      var sub = sorted.slice(i, j);
+      if (sub.length === 1) out.push(sub[0]);
+      else if (sub.length === teams.length) out = out.concat(sub.slice().sort(compareOverall)); // no split → overall
+      else out = out.concat(rankCluster(sub, matches)); // re-apply head-to-head to the still-level subset
+      i = j;
+    }
+    return out;
+  }
+  // Rank a group: points first, ties broken by the 2026 criteria above.
+  function rankGroup(records, matches) {
+    var byPts = records.slice().sort(function (a, b) { return b.Pts - a.Pts; });
+    var out = [], i = 0;
+    while (i < byPts.length) {
+      var j = i + 1;
+      while (j < byPts.length && byPts[j].Pts === byPts[i].Pts) j++;
+      var cluster = byPts.slice(i, j);
+      out = out.concat(cluster.length > 1 ? rankCluster(cluster, matches || []) : cluster);
+      i = j;
+    }
+    out.forEach(function (r, idx) { r.pos = idx + 1; });
+    return out;
+  }
+
+  // Full group league tables, keyed by group label and ranked by the 2026
+  // tiebreakers (head-to-head before goal difference). Used by the Standings tab.
   function groupTables(state) {
-    var teams = computeTeams(state);
-    var groups = {};
-    Object.keys(teams).forEach(function (k) {
-      var t = teams[k];
-      var g = t.group || 'Unassigned';
-      (groups[g] = groups[g] || []).push(t);
-    });
-    Object.keys(groups).forEach(function (g) {
-      groups[g].sort(function (a, b) {
-        return (b.Pts - a.Pts) || (b.GD - a.GD) || (b.GF - a.GF) || a.team.localeCompare(b.team);
-      });
-      groups[g].forEach(function (r, i) { r.pos = i + 1; });
-    });
-    return groups;
+    var teams = computeTeams(state), byLabel = {}, matchesByLabel = {};
+    Object.keys(teams).forEach(function (k) { var t = teams[k], g = t.group || 'Unassigned'; (byLabel[g] = byLabel[g] || []).push(t); });
+    state.matches.forEach(function (m) { if (m.group) (matchesByLabel[m.group] = matchesByLabel[m.group] || []).push(m); });
+    Object.keys(byLabel).forEach(function (g) { byLabel[g] = rankGroup(byLabel[g], matchesByLabel[g]); });
+    return byLabel;
   }
 
   // Map group letter -> array of that group's matches.
@@ -188,8 +235,7 @@
           H.GF += m.homeScore; A.GF += m.awayScore; H.GD += m.homeScore - m.awayScore; A.GD += m.awayScore - m.homeScore;
           if (m.homeScore > m.awayScore) H.Pts += 3; else if (m.homeScore < m.awayScore) A.Pts += 3; else { H.Pts++; A.Pts++; }
         });
-        var sorted = tlist.map(function (t) { return rec[t]; })
-          .sort(function (a, b) { return (b.Pts - a.Pts) || (b.GD - a.GD) || (b.GF - a.GF) || a.team.localeCompare(b.team); });
+        var sorted = rankGroup(tlist.map(function (t) { return rec[t]; }), matches);
         sorted.forEach(function (r, i) {
           status[r.team] = i < 2 ? 'through' : (i === 2 ? 'alive' : 'eliminated');
           meta[r.team] = { group: key, maxPts: r.Pts, everTop2: i < 2 };
@@ -264,8 +310,10 @@
       var letter = (/group\s+([a-l])/i.exec(g) || [])[1];
       if (row) { row.settled = letter ? groupComplete(byGroup[letter.toUpperCase()] || []) : false; thirds.push(row); }
     });
+    // Cross-group ranking of the thirds: head-to-head can't apply, so it's
+    // points, GD, goals, then fair play (fewer card points better).
     thirds.sort(function (a, b) {
-      return (b.Pts - a.Pts) || (b.GD - a.GD) || (b.GF - a.GF) || a.team.localeCompare(b.team);
+      return (b.Pts - a.Pts) || (b.GD - a.GD) || (b.GF - a.GF) || ((a.cardPoints || 0) - (b.cardPoints || 0)) || a.team.localeCompare(b.team);
     });
     thirds.forEach(function (r, i) { r.thirdRank = i + 1; r.qualifying = i < 8; });
     return thirds;
