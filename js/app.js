@@ -812,16 +812,17 @@
   }
 
   /* ---- TAB: Bracket (indicative, from current tables) --------------------- */
-  function bracketSide(o) {
-    if (!o.team) return el('span', { class: 'ko-team muted' }, [o.from]);  // not filled yet
-    return el('span', { class: 'ko-team' + (o.third ? ' ko-third' : '') }, [flagEl(o.team), el('b', null, [o.team]), el('span', { class: 'ko-from' }, ['(' + o.from + ')'])]);
-  }
   function bracketTieEl(t) {
+    function side(o, ref) {
+      if (ref) return el('span', { class: 'ko-team muted' }, [ref]);
+      if (!o.team) return el('span', { class: 'ko-team muted' }, [o.from]);  // not filled yet
+      return el('span', { class: 'ko-team' + (o.third ? ' ko-third' : '') }, [flagEl(o.team), el('b', null, [o.team]), el('span', { class: 'ko-from' }, ['(' + o.from + ')'])]);
+    }
     return el('div', { class: 'ko-match' }, [
       el('span', { class: 'ko-game' }, ['Match ' + t.game]),
-      bracketSide(t.a),
+      side(t.a, t.aRef),
       el('span', { class: 'ko-vs muted' }, ['v']),
-      bracketSide(t.b)
+      side(t.b, t.bRef)
     ]);
   }
 
@@ -829,13 +830,17 @@
     var root = el('div', { class: 'projections' });
     var br = WC.Sim.currentBracket(Live.get());
     var panel = el('div', { class: 'panel' });
-    panel.appendChild(el('h2', null, ['Knockout Bracket ', el('span', { class: 'sub' }, ['Round of 32 · official draw structure'])]));
+    panel.appendChild(el('h2', null, ['Knockout Bracket ', el('span', { class: 'sub' }, ['official structure · filled as it stands'])]));
     if (!br) { panel.appendChild(el('p', { class: 'empty' }, ['Waiting on the group fixtures.'])); root.appendChild(panel); return root; }
-    panel.appendChild(el('p', { class: 'muted small', style: 'margin:0 2px 12px' }, ['The official Round-of-32 fixtures (fixed by group letter), filled “as it stands” from the live tables — current group winners, runners-up and the eight best third-placed teams placed into their eligible slots. Third-place slot assignments are indicative until the group stage ends. Updates as results come in.']));
-    var list = el('div', { class: 'ko-round' });
-    br.ties.forEach(function (t) { list.appendChild(bracketTieEl(t)); });
-    panel.appendChild(list);
-    panel.appendChild(el('p', { class: 'muted small', style: 'margin:12px 2px 0' }, ['Round of 16 onward is set once the Round of 32 line-up is confirmed.']));
+    panel.appendChild(el('p', { class: 'muted small', style: 'margin:0 2px 12px' }, ['The official 2026 knockout bracket, filled “as it stands” from the live group tables — current winners, runners-up and the eight best third-placed teams in their eligible slots (third placements stay provisional until the groups finish). Later rounds show which match-winners meet. Updates as results come in.']));
+    br.rounds.forEach(function (rnd, idx) {
+      var det = el('details', idx === 0 ? { open: 'open' } : null);
+      det.appendChild(el('summary', null, [el('b', null, [rnd.name]),
+        el('span', { class: 'muted small' }, ['  ' + rnd.ties.length + (rnd.ties.length === 1 ? ' tie' : ' ties')])]));
+      var list = el('div', { class: 'ko-round' });
+      rnd.ties.forEach(function (t) { list.appendChild(bracketTieEl(t)); });
+      det.appendChild(list); panel.appendChild(det);
+    });
     root.appendChild(panel);
     return root;
   }

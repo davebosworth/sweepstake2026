@@ -230,9 +230,27 @@
     { game: 83, a: ['R', 'K'], b: ['R', 'L'] },
     { game: 84, a: ['W', 'H'], b: ['R', 'J'] },
     { game: 85, a: ['W', 'B'], b: ['T', ['E', 'F', 'G', 'I', 'J']] },
-    { game: 86, a: ['R', 'D'], b: ['R', 'G'] },
-    { game: 87, a: ['W', 'K'], b: ['T', ['A', 'E', 'F', 'G', 'J']] },
-    { game: 88, a: ['W', 'J'], b: ['R', 'H'] }
+    { game: 86, a: ['W', 'J'], b: ['R', 'H'] },
+    { game: 87, a: ['W', 'K'], b: ['T', ['D', 'E', 'I', 'J', 'L']] },
+    { game: 88, a: ['R', 'D'], b: ['R', 'G'] }
+  ];
+
+  // Later rounds (official match tree). 'W74' = winner of match 74, 'L101' =
+  // loser/runner-up of match 101 (third-place play-off).
+  var LATER_DEF = [
+    { round: 'Round of 16', ties: [
+      { game: 89, a: 'W74', b: 'W77' }, { game: 90, a: 'W73', b: 'W75' },
+      { game: 91, a: 'W76', b: 'W78' }, { game: 92, a: 'W79', b: 'W80' },
+      { game: 93, a: 'W83', b: 'W84' }, { game: 94, a: 'W81', b: 'W82' },
+      { game: 95, a: 'W86', b: 'W88' }, { game: 96, a: 'W85', b: 'W87' }
+    ] },
+    { round: 'Quarter-finals', ties: [
+      { game: 97, a: 'W89', b: 'W90' }, { game: 98, a: 'W93', b: 'W94' },
+      { game: 99, a: 'W91', b: 'W92' }, { game: 100, a: 'W95', b: 'W96' }
+    ] },
+    { round: 'Semi-finals', ties: [ { game: 101, a: 'W97', b: 'W98' }, { game: 102, a: 'W99', b: 'W100' } ] },
+    { round: 'Third-place play-off', ties: [ { game: 103, a: 'L101', b: 'L102' } ] },
+    { round: 'Final', ties: [ { game: 104, a: 'W101', b: 'W102' } ] }
   ];
 
   // Assign the qualifying third-placed groups to the third slots respecting each
@@ -279,7 +297,12 @@
       var rows = groups['Group ' + g], r = rows && rows[type === 'W' ? 0 : 1];
       return { team: r ? r.team : null, from: (type === 'W' ? 'Winner of Group ' : 'Runner-up of Group ') + g };
     }
-    return { ties: R32_DEF.map(function (m) { return { game: m.game, a: slot(m.a, m.game + 'a'), b: slot(m.b, m.game + 'b') }; }) };
+    var r32 = R32_DEF.map(function (m) { return { game: m.game, a: slot(m.a, m.game + 'a'), b: slot(m.b, m.game + 'b') }; });
+    function ref(code) { return (code[0] === 'W' ? 'Winner of Match ' : 'Runner-up of Match ') + code.slice(1); }
+    var later = LATER_DEF.map(function (rd) {
+      return { name: rd.round, ties: rd.ties.map(function (t) { return { game: t.game, aRef: ref(t.a), bRef: ref(t.b) }; }) };
+    });
+    return { rounds: [{ name: 'Round of 32', ties: r32 }].concat(later) };
   }
 
   WC.Sim = { project: project, projectedBracket: projectedBracket, currentBracket: currentBracket, ratings: ratings, predict: predict, koPredict: koPredict };
