@@ -205,6 +205,55 @@
   // Is every match in this group finished?
   function groupComplete(matches) { return matches.length > 0 && matches.every(isFinished); }
 
+  function matchId(m) { return m._espnId != null ? String(m._espnId) : (m.home + '|' + m.away + '|' + (m.group || '')); }
+
+  // Head-to-head points among a set of team names, given each group match's
+  // outcome ('H' home win, 'A' away win, 'D' draw). Only games between the set.
+  function h2hPointsOf(teamNames, matches, outcome) {
+    var set = {}, p = {};
+    teamNames.forEach(function (t) { set[t] = 1; p[t] = 0; });
+    matches.forEach(function (m) {
+      if (!set[m.home] || !set[m.away]) return;
+      var o = outcome[matchId(m)];
+      if (o === 'H') p[m.home] += 3; else if (o === 'A') p[m.away] += 3; else if (o === 'D') { p[m.home]++; p[m.away]++; }
+    });
+    return p;
+  }
+
+  // Split a points-level set into ordered "bands" by head-to-head points,
+  // re-applied to any still-level subset. Teams that stay level after H2H points
+  // share a band — their order then depends on goal difference (not decided by
+  // win/draw/loss alone), so we leave them undetermined.
+  function h2hBands(teamNames, matches, outcome) {
+    if (teamNames.length <= 1) return [teamNames.slice()];
+    var p = h2hPointsOf(teamNames, matches, outcome);
+    var sorted = teamNames.slice().sort(function (a, b) { return p[b] - p[a]; });
+    var out = [], i = 0;
+    while (i < sorted.length) {
+      var j = i + 1; while (j < sorted.length && p[sorted[j]] === p[sorted[i]]) j++;
+      var sub = sorted.slice(i, j);
+      if (sub.length === 1) out.push(sub);
+      else if (sub.length === teamNames.length) out.push(sub);             // no split → undetermined band
+      else h2hBands(sub, matches, outcome).forEach(function (b) { out.push(b); });
+      i = j;
+    }
+    return out;
+  }
+
+  // Order all teams for one scenario into bands: overall points, then H2H points.
+  function scenarioBands(teamNames, pts, matches, outcome) {
+    var byPts = teamNames.slice().sort(function (a, b) { return pts[b] - pts[a]; });
+    var bands = [], i = 0;
+    while (i < byPts.length) {
+      var j = i + 1; while (j < byPts.length && pts[byPts[j]] === pts[byPts[i]]) j++;
+      var cluster = byPts.slice(i, j);
+      if (cluster.length === 1) bands.push(cluster);
+      else h2hBands(cluster, matches, outcome).forEach(function (b) { bands.push(b); });
+      i = j;
+    }
+    return bands;
+  }
+
   /* Mathematical group-stage status per team: 'through' (guaranteed top 2),
      'eliminated' (can't reach the knockouts), or 'alive'. Two parts:
 
@@ -244,38 +293,33 @@
         return;
       }
 
-      var base = {}; tlist.forEach(function (t) { base[t] = 0; });
-      var remaining = [];
-      matches.forEach(function (m) {
-        if (isFinished(m)) {
-          if (m.homeScore > m.awayScore) base[m.home] += 3;
-          else if (m.homeScore < m.awayScore) base[m.away] += 3;
-          else { base[m.home] += 1; base[m.away] += 1; }
-        } else { remaining.push(m); }   // scheduled or live = undecided
-      });
+      // Brute-force the remaining W/D/L outcomes. Within a scenario we resolve
+      // positions by points then head-to-head POINTS (both fixed by W/D/L);
+      // teams still level after that ("undetermined" — separated only by goal
+      // difference) are treated as possibly-above for clinching and
+      // possibly-below for elimination, so the calls stay sound.
+      var remaining = matches.filter(function (m) { return !isFinished(m); });
       var k = remaining.length, combos = Math.pow(3, k);
+      var fixed = {};
+      matches.forEach(function (m) { if (isFinished(m)) fixed[matchId(m)] = m.homeScore > m.awayScore ? 'H' : (m.homeScore < m.awayScore ? 'A' : 'D'); });
       var alwaysTop2 = {}, everTop2 = {}, everTop3 = {}, maxPts = {}, minThirdPts = Infinity;
       tlist.forEach(function (t) { alwaysTop2[t] = true; everTop2[t] = false; everTop3[t] = false; maxPts[t] = 0; });
       for (var c = 0; c < combos; c++) {
-        var pts = {}; tlist.forEach(function (t) { pts[t] = base[t]; });
+        var outcome = {}; for (var fk in fixed) if (fixed.hasOwnProperty(fk)) outcome[fk] = fixed[fk];
         var cc = c;
-        for (var i = 0; i < k; i++) {
-          var o = cc % 3; cc = Math.floor(cc / 3); var m = remaining[i];
-          if (o === 0) pts[m.home] += 3; else if (o === 1) pts[m.away] += 3; else { pts[m.home] += 1; pts[m.away] += 1; }
-        }
+        for (var i = 0; i < k; i++) { var o = cc % 3; cc = Math.floor(cc / 3); outcome[matchId(remaining[i])] = o === 0 ? 'H' : (o === 1 ? 'A' : 'D'); }
+        var pts = {}; tlist.forEach(function (t) { pts[t] = 0; });
+        matches.forEach(function (m) { var oo = outcome[matchId(m)]; if (oo === 'H') pts[m.home] += 3; else if (oo === 'A') pts[m.away] += 3; else { pts[m.home]++; pts[m.away]++; } });
         var ordered = tlist.map(function (t) { return pts[t]; }).sort(function (a, b) { return b - a; });
         if (ordered[2] != null && ordered[2] < minThirdPts) minThirdPts = ordered[2];
+        var bands = scenarioBands(tlist, pts, matches, outcome), above = {}, cum = 0;
+        bands.forEach(function (band) { band.forEach(function (t) { above[t] = { a: cum, band: band.length }; }); cum += band.length; });
         tlist.forEach(function (t) {
           if (pts[t] > maxPts[t]) maxPts[t] = pts[t];
-          var strictlyAbove = 0, othersGE = 0;
-          tlist.forEach(function (u) {
-            if (u === t) return;
-            if (pts[u] > pts[t]) strictlyAbove++;
-            if (pts[u] >= pts[t]) othersGE++;
-          });
-          if (othersGE > 1) alwaysTop2[t] = false;
-          if (othersGE <= 1) everTop2[t] = true;
-          if (strictlyAbove < 3) everTop3[t] = true;
+          var sa = above[t].a, und = above[t].band - 1;   // teams strictly above, and undetermined ties
+          if (sa <= 1) everTop2[t] = true;                 // best case (ties favourable)
+          if (sa <= 2) everTop3[t] = true;
+          if (sa + und > 1) alwaysTop2[t] = false;          // worst case (ties against)
         });
       }
       minThird[key] = isFinite(minThirdPts) ? minThirdPts : 0;
