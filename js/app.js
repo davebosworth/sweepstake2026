@@ -527,17 +527,17 @@
     }
     root.appendChild(recPanel);
 
-    // Golden Boot — top 5 scorers with 2+ goals; if players are level at the
-    // cut-off, show everyone tied (never split a tie). One-goal players are
-    // hidden.
+    // Golden Boot — top 5 scorers with 3+ goals; if players are level at the
+    // cut-off, show everyone tied (never split a tie). Players with fewer than
+    // three goals are hidden.
     var gb = WC.Stats.goldenBoot(st);
-    var top = gb.filter(function (r) { return r.goals >= 2; });
+    var top = gb.filter(function (r) { return r.goals >= 3; });
     if (top.length > 5) { var cut = top[4].goals; top = top.filter(function (r) { return r.goals >= cut; }); }
     var gbPanel = el('div', { class: 'panel' });
-    gbPanel.appendChild(el('h2', null, ['Golden Boot ', el('span', { class: 'sub' }, ['2+ goals'])]));
+    gbPanel.appendChild(el('h2', null, ['Golden Boot ', el('span', { class: 'sub' }, ['3+ goals'])]));
     if (!top.length) {
       gbPanel.appendChild(el('p', { class: 'empty' }, [st.detailLoading ? 'Loading scorers from ESPN…'
-        : (gb.length ? 'No player has scored twice yet.' : 'No goals recorded yet.')]));
+        : (gb.length ? 'No player has scored three times yet.' : 'No goals recorded yet.')]));
     } else {
       var t = el('table', { class: 'tbl scorers' });
       t.innerHTML = '<thead><tr><th>#</th><th>Player</th><th>Team</th><th>Owner</th><th class="r">Goals</th><th class="r">Pens</th></tr></thead>';
