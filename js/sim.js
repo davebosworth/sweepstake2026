@@ -162,21 +162,52 @@
     var sampleDecide = function (h, a) { var l = lambdas(elo[h], elo[a]); return [samplePoisson(l[0]), samplePoisson(l[1])]; };
     var r32 = buildR32(byGroup, elo, sampleDecide);
     var res = playTree(r32, function (a, b) { var w = koWinner(a, b, elo); return { winner: w, loser: w === a ? b : a, m: null }; });
-    return { champion: res.winner[104], runnerUp: res.loser[104] };
+    return { champion: res.winner[104], runnerUp: res.loser[104], winner: res.winner, loser: res.loser };
   }
 
-  /* ---- public: projections ------------------------------------------------ */
+  // Build the predictor's bracket from the Monte Carlo tallies, so it reflects
+  // (and re-runs with) the same simulation as the title odds. `won[g]`/`seen[g]`
+  // count, per official match g, how often each team won / appeared in it.
+  // Round of 32 shows the two most-frequent teams to reach each tie; later rounds
+  // propagate the winners up the real tree; each shown win % is the pick's win
+  // rate in the sims where it reached that tie (so it moves on re-run).
+  function consensusBracket(won, seen, elo) {
+    var tieOf = {};
+    function topTwo(g) {
+      var s = seen[g] || {};
+      return Object.keys(s).sort(function (a, b) { return s[b] - s[a]; }).slice(0, 2);
+    }
+    function tie(g, a, b) {
+      if (a == null || b == null) { var w = a == null ? b : a; return { game: +g, a: a, b: b, pick: w, winPct: 1, score: [0, 0], pens: false }; }
+      var pick = ((won[g] || {})[a] || 0) >= ((won[g] || {})[b] || 0) ? a : b;
+      var ap = (seen[g] || {})[pick] || 0, wn = (won[g] || {})[pick] || 0;
+      var kp = koPredict(a, b, elo);   // representative scoreline / penalties only
+      var wp = ap ? wn / ap : (kp.pick === pick ? kp.winPct : 1 - kp.winPct);
+      var t = { game: +g, a: a, b: b, pick: pick, winPct: wp, score: kp.score, pens: kp.pens };
+      tieOf[g] = t; return t;
+    }
+    function ref(code) { var g = code.slice(1), t = tieOf[g]; if (!t) return null; return code[0] === 'W' ? t.pick : (t.pick === t.a ? t.b : t.a); }
+    var rounds = [{ name: 'Round of 32', matches: R32_DEF.map(function (d) { var ab = topTwo(d.game); return tie(d.game, ab[0], ab[1]); }) }];
+    LATER_DEF.forEach(function (rd) {
+      rounds.push({ name: rd.round, matches: rd.ties.map(function (d) { return tie(d.game, ref(d.a), ref(d.b)); }) });
+    });
+    return { rounds: rounds, champion: (tieOf[104] || {}).pick, elo: elo };
+  }
+
+  /* ---- public: projections (title odds, returns & the predictor bracket) -- */
   function project(state, oddsRows, n) {
     var elo = ratings(state, oddsRows);
     if (!elo) return null;
     n = n || 4000;
     var byGroup = groupMatches(state);
     if (Object.keys(byGroup).length < 8) return null;   // group data not loaded yet
-    var champ = {}, ru = {};
+    var champ = {}, ru = {}, won = {}, seen = {};
+    function bump(o, g, t) { if (t == null) return; (o[g] = o[g] || {})[t] = (o[g][t] || 0) + 1; }
     for (var s = 0; s < n; s++) {
       var r = simOnce(byGroup, elo);
       if (r.champion) champ[r.champion] = (champ[r.champion] || 0) + 1;
       if (r.runnerUp) ru[r.runnerUp] = (ru[r.runnerUp] || 0) + 1;
+      for (var g in r.winner) { bump(won, g, r.winner[g]); bump(seen, g, r.winner[g]); bump(seen, g, r.loser[g]); }
     }
     var teams = WC.TEAMS.map(function (t) {
       return { team: t, owner: WC.ownerOf(t), elo: elo[t], champ: (champ[t] || 0) / n, ru: (ru[t] || 0) / n };
@@ -186,34 +217,7 @@
       p.teams.forEach(function (t) { cw += (champ[t] || 0) / n; rw += (ru[t] || 0) / n; });
       return { player: p.name, pWin: cw, pRunner: rw, exp: cw * 80 + rw * 20 };
     }).sort(function (a, b) { return b.exp - a.exp; });
-    return { players: players, teams: teams, elo: elo, n: n };
-  }
-
-  /* ---- public: most-likely projected bracket (for the KO predictor) ------- */
-  function projectedBracket(state, oddsRows) {
-    var elo = ratings(state, oddsRows);
-    if (!elo) return null;
-    var byGroup = groupMatches(state);
-    if (Object.keys(byGroup).length < 8) return null;
-    // Decide unplayed group games by their single likeliest outcome.
-    var decide = function (h, a) {
-      var p = predict(elo[h], elo[a]);
-      if (p.home >= p.draw && p.home >= p.away) return p.score[0] === p.score[1] ? [p.score[0] + 1, p.score[1]] : p.score;
-      if (p.away >= p.draw && p.away >= p.home) return p.score[0] === p.score[1] ? [p.score[0], p.score[1] + 1] : p.score;
-      return [p.score[0], p.score[1]];   // draw
-    };
-    var r32 = buildR32(byGroup, elo, decide);
-    var res = playTree(r32, function (a, b) {
-      if (a == null || b == null) {
-        var w = a == null ? b : a;
-        return { winner: w, loser: a == null ? a : b, m: { a: a, b: b, pick: w, winPct: 1, score: [0, 0], pens: false } };
-      }
-      var m = koPredict(a, b, elo);
-      return { winner: m.pick, loser: m.pick === a ? b : a, m: m };
-    });
-    var rounds = [{ name: 'Round of 32', matches: r32.map(function (t) { return res.detail[t.game]; }) }];
-    LATER_DEF.forEach(function (rd) { rounds.push({ name: rd.round, matches: rd.ties.map(function (t) { return res.detail[t.game]; }) }); });
-    return { rounds: rounds, champion: res.winner[104], elo: elo };
+    return { players: players, teams: teams, elo: elo, n: n, bracket: consensusBracket(won, seen, elo) };
   }
 
   /* ---- public: official Round of 32 from the CURRENT group tables --------- */
@@ -334,6 +338,6 @@
     return { rounds: [{ name: 'Round of 32', ties: r32 }].concat(later) };
   }
 
-  WC.Sim = { project: project, projectedBracket: projectedBracket, currentBracket: currentBracket, ratings: ratings, predict: predict, koPredict: koPredict };
+  WC.Sim = { project: project, currentBracket: currentBracket, ratings: ratings, predict: predict, koPredict: koPredict };
 
 })(window.WC = window.WC || {});

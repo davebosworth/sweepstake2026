@@ -391,7 +391,7 @@
     if (projCache.sig !== sig) {
       projCache.sig = sig;
       projCache.proj = WC.Sim.project(st, oddsState.rows, 3000);
-      projCache.bracket = WC.Sim.projectedBracket(st, oddsState.rows);
+      projCache.bracket = projCache.proj ? projCache.proj.bracket : null;
     }
     return projCache;
   }
@@ -473,7 +473,7 @@
     if (data.bracket) {
       var kp = el('div', { class: 'panel' });
       kp.appendChild(el('h2', null, ['Knockout Predictor ', el('span', { class: 'sub' }, ['projected bracket'])]));
-      kp.appendChild(el('p', { class: 'muted small', style: 'margin:0 2px 12px' }, ['Most-likely qualifiers dropped into the official 2026 bracket, with each tie’s modelled result (p = decided on penalties). Firms up as group results land.']));
+      kp.appendChild(el('p', { class: 'muted small', style: 'margin:0 2px 12px' }, ['The consensus bracket from the same Monte Carlo run as the title odds: the most-frequent teams to reach each tie in the official 2026 bracket, and how often the pick wins it (p = decided on penalties). Re-run to resample; it shifts where the draw is close.']));
       data.bracket.rounds.forEach(function (rnd) {
         var det = el('details', rnd.matches.length <= 8 ? { open: 'open' } : null);
         det.appendChild(el('summary', null, [el('b', null, [rnd.name]),
