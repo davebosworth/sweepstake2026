@@ -756,7 +756,7 @@
       var posCls = r.pos <= 2 ? 'qz-top' : (r.pos === 3 ? 'qz-third' : '');
       var badge = s === 'through' ? ' <span class="qbadge q-ok">✓</span>'
         : (s === 'eliminated' ? ' <span class="qbadge q-no">✗</span>'
-        : (r.pos === 3 && thirdQual[r.team] ? ' <span class="qbadge q-prov" title="In the best-8 third-place places (provisional)">✓</span>' : ''));
+        : (r.pos === 3 && thirdQual[r.team] ? ' <span class="qbadge q-prov" title="Provisionally through — currently in the best-8 third-place places, but more results to come">✓?</span>' : ''));
       var team = WC.flagHTML(r.team) + (r.live ? '<span class="live-dot"></span>' : '') + r.team + badge;
       tr.innerHTML = '<td class="' + posCls + '">' + r.pos + '</td><td>' + team + '</td><td class="muted">' + r.owner + '</td><td class="r">' + r.P + '</td><td class="r">' + r.W + '</td><td class="r">' + r.D + '</td><td class="r">' + r.L + '</td><td class="r">' + r.GF + '</td><td class="r">' + r.GA + '</td><td class="r">' + gd + '</td><td class="r b">' + r.Pts + '</td>';
       tb.appendChild(tr);
@@ -814,6 +814,12 @@
     var grid = el('div', { class: 'group-grid' });
     keys.forEach(function (g) { grid.appendChild(standingsPanel(g === 'Unassigned' ? 'Overall Table' : g, groups[g], status, thirdQual)); });
     root.appendChild(grid);
+    var anyProv = Object.keys(thirdQual).length > 0;
+    root.appendChild(el('p', { class: 'muted small', style: 'margin:8px 2px 0' }, [
+      el('span', { class: 'qbadge q-ok' }, ['✓']), ' through',
+      ' · ', el('span', { class: 'qbadge q-no' }, ['✗']), ' out',
+      anyProv ? el('span', null, [' · ', el('span', { class: 'qbadge q-prov' }, ['✓?']), ' provisionally through (best-8 third place — more results to come)']) : null
+    ]));
     return root;
   }
 
