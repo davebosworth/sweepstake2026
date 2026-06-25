@@ -202,8 +202,18 @@
     return by;
   }
 
-  // Is every match in this group finished?
+  // Is every match in this group finished (full-time)?
   function groupComplete(matches) { return matches.length > 0 && matches.every(isFinished); }
+
+  // Is every match decided — i.e. has a result on the board and none still to be
+  // played? True once all games are finished OR in progress (a just-finished game
+  // can briefly read as 'live' before ESPN flags full-time). Lets us rank a group
+  // with goal difference rather than treating a played game as an open scenario.
+  function groupDecided(matches) {
+    return matches.length > 0 && matches.every(function (m) {
+      return m.homeScore != null && m.awayScore != null && m.status !== 'scheduled';
+    });
+  }
 
   function matchId(m) { return m._espnId != null ? String(m._espnId) : (m.home + '|' + m.away + '|' + (m.group || '')); }
 
@@ -278,8 +288,9 @@
       var teamSet = {}; matches.forEach(function (m) { teamSet[m.home] = teamSet[m.away] = 1; });
       var tlist = Object.keys(teamSet);
 
-      // Finished group: positions are settled (with GD), so read them directly.
-      if (groupComplete(matches)) {
+      // Decided group: every game has a result, so read final positions with GD
+      // directly (covers a just-finished game still flagged 'live' by the feed).
+      if (groupDecided(matches)) {
         var rec = {}; tlist.forEach(function (t) { rec[t] = { team: t, Pts: 0, GD: 0, GF: 0 }; });
         matches.forEach(function (m) {
           var H = rec[m.home], A = rec[m.away];
