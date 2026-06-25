@@ -202,17 +202,21 @@
     return by;
   }
 
-  // Is every match in this group finished (full-time)?
-  function groupComplete(matches) { return matches.length > 0 && matches.every(isFinished); }
-
-  // Is every match decided — i.e. has a result on the board and none still to be
-  // played? True once all games are finished OR in progress (a just-finished game
-  // can briefly read as 'live' before ESPN flags full-time). Lets us rank a group
-  // with goal difference rather than treating a played game as an open scenario.
-  function groupDecided(matches) {
-    return matches.length > 0 && matches.every(function (m) {
-      return m.homeScore != null && m.awayScore != null && m.status !== 'scheduled';
+  // Is the group finished? Each team in a four-team group plays three games, so
+  // the group is done once every team has three results on the board. Counting by
+  // results (any match with a score) instead of a full-time flag is robust to a
+  // just-finished game still showing as 'live', or other feed quirks.
+  function groupComplete(matches) {
+    var teamSet = {}, played = {};
+    matches.forEach(function (m) {
+      if (m.home) teamSet[m.home] = 1;
+      if (m.away) teamSet[m.away] = 1;
+      if (m.homeScore == null || m.awayScore == null) return;
+      if (m.home) played[m.home] = (played[m.home] || 0) + 1;
+      if (m.away) played[m.away] = (played[m.away] || 0) + 1;
     });
+    var teams = Object.keys(teamSet);
+    return teams.length > 0 && teams.every(function (t) { return (played[t] || 0) >= 3; });
   }
 
   function matchId(m) { return m._espnId != null ? String(m._espnId) : (m.home + '|' + m.away + '|' + (m.group || '')); }
@@ -288,11 +292,13 @@
       var teamSet = {}; matches.forEach(function (m) { teamSet[m.home] = teamSet[m.away] = 1; });
       var tlist = Object.keys(teamSet);
 
-      // Decided group: every game has a result, so read final positions with GD
-      // directly (covers a just-finished game still flagged 'live' by the feed).
-      if (groupDecided(matches)) {
+      // Finished group (all teams have played their three games): read final
+      // positions with GD directly. Covers a just-finished game still flagged
+      // 'live' by the feed, since we count any match with a result.
+      if (groupComplete(matches)) {
         var rec = {}; tlist.forEach(function (t) { rec[t] = { team: t, Pts: 0, GD: 0, GF: 0 }; });
         matches.forEach(function (m) {
+          if (m.homeScore == null || m.awayScore == null) return;   // ignore any unplayed straggler
           var H = rec[m.home], A = rec[m.away];
           H.GF += m.homeScore; A.GF += m.awayScore; H.GD += m.homeScore - m.awayScore; A.GD += m.awayScore - m.homeScore;
           if (m.homeScore > m.awayScore) H.Pts += 3; else if (m.homeScore < m.awayScore) A.Pts += 3; else { H.Pts++; A.Pts++; }

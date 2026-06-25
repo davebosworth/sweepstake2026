@@ -806,11 +806,11 @@
     }
     var race = S.thirdPlaceRace(st);
     if (race.length) root.appendChild(thirdPlacePanel(race));
-    // Provisional tick for any 3rd-placed team currently sitting in the
-    // qualifying eight but not yet mathematically guaranteed — whether or not
-    // its own group has finished (an in-progress group's 3rd still counts).
+    // Provisional tick for a finished group's 3rd that currently sits in the
+    // qualifying eight but isn't mathematically guaranteed yet. Only shown for
+    // complete groups (all teams have played their three games).
     var thirdQual = {};
-    race.forEach(function (r) { if (r.qualifying && status[r.team] !== 'through') thirdQual[r.team] = true; });
+    race.forEach(function (r) { if (r.qualifying && r.settled && status[r.team] !== 'through') thirdQual[r.team] = true; });
 
     var grid = el('div', { class: 'group-grid' });
     keys.forEach(function (g) { grid.appendChild(standingsPanel(g === 'Unassigned' ? 'Overall Table' : g, groups[g], status, thirdQual)); });
