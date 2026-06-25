@@ -149,6 +149,7 @@ body {
 .team-out .qbadge { text-decoration: none; }
 .q-ok { color: var(--green); }
 .q-no { color: var(--red); }
+.q-prov { color: var(--green); opacity: 0.55; }
 .q-in-row td { background: rgba(55, 210, 122, 0.08); }
 .q-out-row td { color: var(--muted); }
 .q-cut td { text-align: center; color: var(--gold); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; padding: 4px; border-top: 1px dashed var(--gold); border-bottom: 1px dashed var(--gold); background: rgba(244,196,48,0.06); }

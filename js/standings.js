@@ -270,6 +270,8 @@
     var byGroup = matchesByGroup(state), status = {};
     var meta = {};       // team -> { group, maxPts, everTop2 }
     var minThird = {};   // group -> guaranteed-minimum points of its eventual 3rd team
+    var maxThird = {};   // group -> best-possible points of its eventual 3rd team
+    var completeThirds = [];  // 3rd-placed teams of finished groups: { team, group, pts }
 
     Object.keys(byGroup).forEach(function (key) {
       var matches = byGroup[key];
@@ -289,7 +291,8 @@
           status[r.team] = i < 2 ? 'through' : (i === 2 ? 'alive' : 'eliminated');
           meta[r.team] = { group: key, maxPts: r.Pts, everTop2: i < 2 };
         });
-        minThird[key] = sorted[2] ? sorted[2].Pts : 0;
+        minThird[key] = maxThird[key] = sorted[2] ? sorted[2].Pts : 0;
+        if (sorted[2]) completeThirds.push({ team: sorted[2].team, group: key, pts: sorted[2].Pts });
         return;
       }
 
@@ -302,7 +305,7 @@
       var k = remaining.length, combos = Math.pow(3, k);
       var fixed = {};
       matches.forEach(function (m) { if (isFinished(m)) fixed[matchId(m)] = m.homeScore > m.awayScore ? 'H' : (m.homeScore < m.awayScore ? 'A' : 'D'); });
-      var alwaysTop2 = {}, everTop2 = {}, everTop3 = {}, maxPts = {}, minThirdPts = Infinity;
+      var alwaysTop2 = {}, everTop2 = {}, everTop3 = {}, maxPts = {}, minThirdPts = Infinity, maxThirdPts = -Infinity;
       tlist.forEach(function (t) { alwaysTop2[t] = true; everTop2[t] = false; everTop3[t] = false; maxPts[t] = 0; });
       for (var c = 0; c < combos; c++) {
         var outcome = {}; for (var fk in fixed) if (fixed.hasOwnProperty(fk)) outcome[fk] = fixed[fk];
@@ -312,6 +315,7 @@
         matches.forEach(function (m) { var oo = outcome[matchId(m)]; if (oo === 'H') pts[m.home] += 3; else if (oo === 'A') pts[m.away] += 3; else { pts[m.home]++; pts[m.away]++; } });
         var ordered = tlist.map(function (t) { return pts[t]; }).sort(function (a, b) { return b - a; });
         if (ordered[2] != null && ordered[2] < minThirdPts) minThirdPts = ordered[2];
+        if (ordered[2] != null && ordered[2] > maxThirdPts) maxThirdPts = ordered[2];
         var bands = scenarioBands(tlist, pts, matches, outcome), above = {}, cum = 0;
         bands.forEach(function (band) { band.forEach(function (t) { above[t] = { a: cum, band: band.length }; }); cum += band.length; });
         tlist.forEach(function (t) {
@@ -323,6 +327,7 @@
         });
       }
       minThird[key] = isFinite(minThirdPts) ? minThirdPts : 0;
+      maxThird[key] = isFinite(maxThirdPts) ? maxThirdPts : 0;
       tlist.forEach(function (t) {
         status[t] = alwaysTop2[t] ? 'through' : (!everTop3[t] ? 'eliminated' : 'alive');
         meta[t] = { group: key, maxPts: maxPts[t], everTop2: everTop2[t] };
@@ -338,6 +343,17 @@
       var betterThirds = 0;
       groupKeys.forEach(function (g) { if (g !== m.group && minThird[g] > m.maxPts) betterThirds++; });
       if (betterThirds >= 8) status[t] = 'eliminated';
+    });
+
+    // Best-8-thirds qualification (the mirror image): a finished group's 3rd-placed
+    // team is THROUGH once at most seven other groups' thirds could still match or
+    // beat its points — it's then guaranteed to be one of the eight that advance.
+    // Conservative (>= counts as a possible threat) so it never ticks too early.
+    completeThirds.forEach(function (ct) {
+      if (status[ct.team] === 'eliminated') return;
+      var threats = 0;
+      groupKeys.forEach(function (g) { if (g !== ct.group && (maxThird[g] || 0) >= ct.pts) threats++; });
+      if (threats <= 7) status[ct.team] = 'through';
     });
 
     return status;

@@ -741,8 +741,8 @@
   }
 
   /* ---- TAB: Standings ----------------------------------------------------- */
-  function standingsPanel(label, rows, status) {
-    status = status || {};
+  function standingsPanel(label, rows, status, thirdQual) {
+    status = status || {}; thirdQual = thirdQual || {};
     var panel = el('div', { class: 'panel' });
     var anyLive = rows.some(function (r) { return r.live; });
     panel.appendChild(el('h2', null, [label, anyLive ? el('span', { class: 'sub' }, ['live — provisional']) : null]));
@@ -754,7 +754,9 @@
       var s = status[r.team];
       var tr = el('tr', { class: (r.live ? 'liverow ' : '') + (s === 'eliminated' ? 'q-out' : (s === 'through' ? 'q-through' : '')) });
       var posCls = r.pos <= 2 ? 'qz-top' : (r.pos === 3 ? 'qz-third' : '');
-      var badge = s === 'through' ? ' <span class="qbadge q-ok">✓</span>' : (s === 'eliminated' ? ' <span class="qbadge q-no">✗</span>' : '');
+      var badge = s === 'through' ? ' <span class="qbadge q-ok">✓</span>'
+        : (s === 'eliminated' ? ' <span class="qbadge q-no">✗</span>'
+        : (r.pos === 3 && thirdQual[r.team] ? ' <span class="qbadge q-prov" title="In the best-8 third-place places (provisional)">✓</span>' : ''));
       var team = WC.flagHTML(r.team) + (r.live ? '<span class="live-dot"></span>' : '') + r.team + badge;
       tr.innerHTML = '<td class="' + posCls + '">' + r.pos + '</td><td>' + team + '</td><td class="muted">' + r.owner + '</td><td class="r">' + r.P + '</td><td class="r">' + r.W + '</td><td class="r">' + r.D + '</td><td class="r">' + r.L + '</td><td class="r">' + r.GF + '</td><td class="r">' + r.GA + '</td><td class="r">' + gd + '</td><td class="r b">' + r.Pts + '</td>';
       tb.appendChild(tr);
@@ -804,9 +806,13 @@
     }
     var race = S.thirdPlaceRace(st);
     if (race.length) root.appendChild(thirdPlacePanel(race));
+    // Provisional tick for a finished group's 3rd that currently sits in the
+    // qualifying eight but isn't mathematically guaranteed yet.
+    var thirdQual = {};
+    race.forEach(function (r) { if (r.qualifying && r.settled && status[r.team] !== 'through') thirdQual[r.team] = true; });
 
     var grid = el('div', { class: 'group-grid' });
-    keys.forEach(function (g) { grid.appendChild(standingsPanel(g === 'Unassigned' ? 'Overall Table' : g, groups[g], status)); });
+    keys.forEach(function (g) { grid.appendChild(standingsPanel(g === 'Unassigned' ? 'Overall Table' : g, groups[g], status, thirdQual)); });
     root.appendChild(grid);
     return root;
   }
