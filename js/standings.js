@@ -185,19 +185,34 @@
   // Full group league tables, keyed by group label and ranked by the 2026
   // tiebreakers (head-to-head before goal difference). Used by the Standings tab.
   function groupTables(state) {
-    var teams = computeTeams(state), byLabel = {}, matchesByLabel = {};
+    var teams = computeTeams(state), byLabel = {};
     Object.keys(teams).forEach(function (k) { var t = teams[k], g = t.group || 'Unassigned'; (byLabel[g] = byLabel[g] || []).push(t); });
-    state.matches.forEach(function (m) { if (m.group) (matchesByLabel[m.group] = matchesByLabel[m.group] || []).push(m); });
+    var matchesByLabel = matchesByGroupLabel(state, teams);
     Object.keys(byLabel).forEach(function (g) { byLabel[g] = rankGroup(byLabel[g], matchesByLabel[g]); });
     return byLabel;
   }
 
-  // Map group letter -> array of that group's matches.
-  function matchesByGroup(state) {
+  // Group every match by its teams' group, using the team->group assignment from
+  // computeTeams. ESPN often omits the group label on individual matches, so
+  // grouping by team membership (not each match's own label) captures all of a
+  // group's games — keeping league tables, status and the thirds race consistent.
+  function matchesByGroupLabel(state, teams) {
+    teams = teams || computeTeams(state);
     var by = {};
     state.matches.forEach(function (m) {
-      var g = /group\s+([a-l])\b/i.exec(m.group || '');
-      if (g && m.home && m.away) (by[g[1].toUpperCase()] = by[g[1].toUpperCase()] || []).push(m);
+      if (!m.home || !m.away) return;
+      var g = (teams[m.home] && teams[m.home].group) || (teams[m.away] && teams[m.away].group);
+      if (g) (by[g] = by[g] || []).push(m);
+    });
+    return by;
+  }
+
+  // Map group letter -> array of that group's matches (by team membership).
+  function matchesByGroup(state) {
+    var byLabel = matchesByGroupLabel(state), by = {};
+    Object.keys(byLabel).forEach(function (label) {
+      var g = /group\s+([a-l])\b/i.exec(label);
+      if (g) by[g[1].toUpperCase()] = byLabel[label];
     });
     return by;
   }
