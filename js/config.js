@@ -16,7 +16,7 @@
  * editing this file (e.g. rotating the key) reaches everyone on next load.
  * ========================================================================== */
 window.WC_CONFIG = {
-  apiKey: '8431cec404e217c56cc871807088cf43',                                  // <-- paste your the-odds-api.com key here
+  apiKey: 'e6da391ea59fa927efe40830b3c460ea',                                  // <-- paste your the-odds-api.com key here
   region: 'uk',                                // uk | eu | us | au
   winnerKey: 'soccer_fifa_world_cup_winner',   // tournament-winner outright market
   runnerUpKey: ''                              // set via "Find World Cup markets" if one exists
