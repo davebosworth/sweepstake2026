@@ -296,29 +296,31 @@
         this team's best-possible total — it then can't be one of the 8 qualifying
         thirds. Strict points comparison only, so it never wrongly eliminates. */
   function groupStatus(state) {
-    var byGroup = matchesByGroup(state), status = {};
+    var status = {};
     var meta = {};       // team -> { group, maxPts, everTop2 }
     var minThird = {};   // group -> guaranteed-minimum points of its eventual 3rd team
     var maxThird = {};   // group -> best-possible points of its eventual 3rd team
     var completeThirds = [];  // 3rd-placed teams of finished groups: { team, group, pts }
 
-    Object.keys(byGroup).forEach(function (key) {
-      var matches = byGroup[key];
-      var teamSet = {}; matches.forEach(function (m) { teamSet[m.home] = teamSet[m.away] = 1; });
-      var tlist = Object.keys(teamSet);
+    // Use the SAME canonical records and grouping as the displayed tables, so
+    // status can never disagree with the table. `teams` counts every match a
+    // side plays (robust to per-match label gaps); matches are grouped by team
+    // membership for the head-to-head and brute-force scenarios.
+    var teams = computeTeams(state);
+    var byMatches = matchesByGroupLabel(state, teams);
+    var byGroup = {}, byTeams = {};
+    Object.keys(byMatches).forEach(function (label) { var gm = /group\s+([a-l])\b/i.exec(label); if (gm) byGroup[gm[1].toUpperCase()] = byMatches[label]; });
+    Object.keys(teams).forEach(function (name) { var gm = /group\s+([a-l])\b/i.exec(teams[name].group || ''); if (gm) (byTeams[gm[1].toUpperCase()] = byTeams[gm[1].toUpperCase()] || []).push(teams[name]); });
 
-      // Finished group (all teams have played their three games): read final
-      // positions with GD directly. Covers a just-finished game still flagged
-      // 'live' by the feed, since we count any match with a result.
-      if (groupComplete(matches)) {
-        var rec = {}; tlist.forEach(function (t) { rec[t] = { team: t, Pts: 0, GD: 0, GF: 0 }; });
-        matches.forEach(function (m) {
-          if (m.homeScore == null || m.awayScore == null) return;   // ignore any unplayed straggler
-          var H = rec[m.home], A = rec[m.away];
-          H.GF += m.homeScore; A.GF += m.awayScore; H.GD += m.homeScore - m.awayScore; A.GD += m.awayScore - m.homeScore;
-          if (m.homeScore > m.awayScore) H.Pts += 3; else if (m.homeScore < m.awayScore) A.Pts += 3; else { H.Pts++; A.Pts++; }
-        });
-        var sorted = rankGroup(tlist.map(function (t) { return rec[t]; }), matches);
+    Object.keys(byTeams).forEach(function (key) {
+      var recs = byTeams[key];
+      var tlist = recs.map(function (r) { return r.team; });
+      var matches = byGroup[key] || [];
+
+      // Finished group: every team has played its three games. Rank the canonical
+      // records (identical to the displayed table) so status and table agree.
+      if (recs.length && recs.every(function (r) { return r.P >= 3; })) {
+        var sorted = rankGroup(recs.slice(), matches);
         sorted.forEach(function (r, i) {
           status[r.team] = i < 2 ? 'through' : (i === 2 ? 'alive' : 'eliminated');
           meta[r.team] = { group: key, maxPts: r.Pts, everTop2: i < 2 };
@@ -395,12 +397,13 @@
      3rd-placed team, ranks them (Pts, GD, GF), and flags the top 8 as in the
      provisional qualifying zone. `settled` marks teams whose group is finished. */
   function thirdPlaceRace(state) {
-    var groups = groupTables(state), byGroup = matchesByGroup(state), thirds = [];
+    var groups = groupTables(state), thirds = [];
     Object.keys(groups).forEach(function (g) {
       if (g === 'Unassigned') return;
-      var row = groups[g].filter(function (r) { return r.pos === 3; })[0];
-      var letter = (/group\s+([a-l])/i.exec(g) || [])[1];
-      if (row) { row.settled = letter ? groupComplete(byGroup[letter.toUpperCase()] || []) : false; thirds.push(row); }
+      var rows = groups[g], row = rows.filter(function (r) { return r.pos === 3; })[0];
+      // A group is settled once every team has played its three games — the same
+      // canonical games-played count the tables and status use.
+      if (row) { row.settled = rows.length > 0 && rows.every(function (r) { return r.P >= 3; }); thirds.push(row); }
     });
     // Cross-group ranking of the thirds: head-to-head can't apply, so it's
     // points, GD, goals, then fair play (fewer card points better).
