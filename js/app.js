@@ -689,6 +689,9 @@
     var fin = S.isFinished(m);
     var live = m.status === 'live' && m.homeScore != null;
     var score = (fin || live) ? (m.homeScore + ' – ' + m.awayScore) : (m.kickoff ? m.kickoff + ' UK' : '—');
+    // Knockout settled on penalties: append the shoot-out result so a level
+    // full-time scoreline still reads as a decisive game.
+    if (fin && m.homeShootout != null && m.awayShootout != null) score += ' (' + m.homeShootout + '–' + m.awayShootout + ' pens)';
 
     // Row 1: centred team names + score. Row 2: owners (left) + group (right).
     var teamLine = el('div', { class: 'mr-teams' }, [

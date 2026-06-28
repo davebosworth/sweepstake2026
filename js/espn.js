@@ -115,6 +115,11 @@
     var live = state === 'in';                       // match in progress right now
     var hasScore = finished || live;
 
+    // Who actually advanced. ESPN flags the winning competitor with `winner:true`
+    // even when a knockout is settled on penalties (regulation score level), so
+    // this names the loser of a shoot-out that the scoreline alone can't.
+    var winner = finished ? (home.winner === true ? 'home' : (away.winner === true ? 'away' : null)) : null;
+
     // Group label if ESPN exposes one (often absent on the scoreboard).
     var group = get(comp, ['notes', 0, 'headline'], '') || get(ev, ['groupId'], '') || '';
     var gm = /group\s+([a-l])/i.exec(group);
@@ -136,6 +141,9 @@
       status: finished ? 'ft' : (live ? 'live' : 'scheduled'),
       homeScore: hasScore ? toInt(home.score) : null,
       awayScore: hasScore ? toInt(away.score) : null,
+      winner: winner,                                   // 'home' | 'away' | null (decides level knockout ties)
+      homeShootout: finished ? toInt(home.shootoutScore) : null,
+      awayShootout: finished ? toInt(away.shootoutScore) : null,
       scorers: [],
       cards: []
     };
@@ -251,7 +259,7 @@
      Lives in sessionStorage and clears when the tab closes. */
   // Bump the version whenever the parsed match shape changes, so stale
   // session caches from an older build are discarded rather than reused.
-  var CACHE_KEY = 'wc26-cache-v8';
+  var CACHE_KEY = 'wc26-cache-v9';
   var mem = { scoreboard: {}, summary: {} };
   var ss = (function () { try { return (typeof sessionStorage !== 'undefined') ? sessionStorage : null; } catch (e) { return null; } })();
 

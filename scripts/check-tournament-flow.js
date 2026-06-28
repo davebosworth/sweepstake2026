@@ -164,6 +164,12 @@ ok(statusStable, 'P6: group statuses unchanged once knockouts begin');
 // a finished knockout tie's loser is knocked out
 var ko6 = S.knockedOut(s6);
 ok(!!koLoserTeam && !!ko6[koLoserTeam], 'P6: loser of a finished knockout tie is knocked out');
+// a knockout settled on penalties: regulation score is level, so the loser is
+// read from ESPN's winner flag rather than the scoreline.
+var penHome = groups['C'][0], penAway = groups['D'][1];   // cross-group (different groups)
+var s6pen = { matches: s6.matches.concat([{ home: penHome, away: penAway, group: '', status: 'ft', homeScore: 1, awayScore: 1, winner: 'home', _ts: 5000 }]) };
+var ko6pen = S.knockedOut(s6pen);
+ok(!!ko6pen[penAway] && !ko6pen[penHome], 'P6: penalty-shootout loser (level score) is knocked out, winner is not');
 
 console.log('Phase 7 — full bracket + Monte Carlo at tournament end');
 var odds = WC.TEAMS.map(function (t, i) { return { team: t, winnerProb: i < 30 ? (0.2 - i * 0.005) : 0 }; });

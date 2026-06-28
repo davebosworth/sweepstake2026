@@ -494,8 +494,9 @@
   //     the top two who isn't a qualifying best-8 third is out. This is robust:
   //     it doesn't depend on the brute-force status path, so a team that's plainly
   //     bottom of a completed group (e.g. 4th place) is always flagged;
-  //  3. the losers of any finished knockout tie (equal-score/penalty ties skipped,
-  //     since the score may not name the winner).
+  //  3. the losers of any finished knockout tie — the loser is read from the
+  //     scoreline, or from ESPN's winner flag when a tie went to penalties (the
+  //     regulation score is level, so it alone can't name who went out).
   function knockedOut(state) {
     var status = groupStatus(state), out = {};
     Object.keys(status).forEach(function (t) { if (status[t] === 'eliminated') out[t] = 1; });
@@ -523,10 +524,15 @@
     var teamGroup = {};
     groupKeys.forEach(function (g) { tables[g].forEach(function (r) { teamGroup[r.team] = g; }); });
     (state.matches || []).forEach(function (m) {
-      if (!isFinished(m) || m.homeScore == null || m.awayScore == null || m.homeScore === m.awayScore) return;
+      if (!isFinished(m) || m.homeScore == null || m.awayScore == null) return;
       var gh = teamGroup[m.home], ga = teamGroup[m.away];
       if (!gh || !ga || gh === ga) return;   // same group (or ungrouped) → not a knockout tie
-      out[m.homeScore > m.awayScore ? m.away : m.home] = 1;
+      // Decisive scoreline names the loser directly; a level tie (decided on
+      // penalties) falls back to ESPN's winner flag. Without either, skip it.
+      var loser = m.homeScore > m.awayScore ? m.away
+                : m.awayScore > m.homeScore ? m.home
+                : (m.winner === 'home' ? m.away : (m.winner === 'away' ? m.home : null));
+      if (loser) out[loser] = 1;
     });
     return out;
   }
