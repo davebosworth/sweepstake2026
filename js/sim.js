@@ -357,20 +357,28 @@
       return t;
     });
     function ref(code) { return (code[0] === 'W' ? 'Winner of Match ' : 'Runner-up of Match ') + code.slice(1); }
-    // The two teams contesting each Round-of-32 match, so the next round can show
-    // the candidate sides (e.g. "GER/PAR") instead of "Winner of Match 74".
-    var r32Teams = {}; r32.forEach(function (m) { r32Teams[m.game] = [m.a.team || null, m.b.team || null]; });
-    function cands(code) { return r32Teams[code.slice(1)] || null; }   // only R32 feeders are concrete
 
     // Propagate decided winners/losers up the official tree (R32 first, then each
-    // later round in dependency order — same order playTree resolves them).
-    var gWin = {}, gLose = {};
-    r32.forEach(function (m) { if (m.winner) { gWin[m.game] = m.winner; gLose[m.game] = m.winner === m.a.team ? m.b.team : m.a.team; } });
+    // later round in dependency order — same order playTree resolves them), and
+    // record every match's two contestants as concrete team names when known.
+    // `contest[game]` lets the next round show the candidate sides (e.g.
+    // "NED/MAR") instead of "Winner of Match NN" — not just off the Round of 32,
+    // but as deep as both feeding ties have produced a known side.
+    var gWin = {}, gLose = {}, contest = {};
+    r32.forEach(function (m) {
+      contest[m.game] = [m.a.team || null, m.b.team || null];
+      if (m.winner) { gWin[m.game] = m.winner; gLose[m.game] = m.winner === m.a.team ? m.b.team : m.a.team; }
+    });
     function refTeam(code) { var g = code.slice(1); return code[0] === 'W' ? gWin[g] : gLose[g]; }
     LATER_DEF.forEach(function (rd) { rd.ties.forEach(function (t) {
-      var at = refTeam(t.a), bt = refTeam(t.b), res = played(at, bt);
+      var at = refTeam(t.a) || null, bt = refTeam(t.b) || null;
+      contest[t.game] = [at, bt];
+      var res = played(at, bt);
       if (res) { gWin[t.game] = res.winner; gLose[t.game] = res.loser; }
     }); });
+    // Candidate sides for the next round: only when BOTH contestants of the
+    // feeding match are known (so we can show "X/Y"); otherwise fall back to ref.
+    function cands(code) { var c = contest[code.slice(1)]; return (c && c[0] && c[1]) ? c : null; }
 
     var later = LATER_DEF.map(function (rd) {
       return { name: rd.round, ties: rd.ties.map(function (t) {

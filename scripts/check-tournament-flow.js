@@ -211,8 +211,17 @@ console.log('Phase 8b — KNOCKOUT stage: losers surface as "knocked out" and th
   var r32 = br.rounds[0].ties.filter(function (t) { return t.game === r32def.game; })[0];
   ok(r32 && r32.winner === winnerTeam, 'P8b: the played R32 tie reports winner=' + winnerTeam);
   var r16 = br.rounds.filter(function (r) { return r.name === 'Round of 16'; })[0];
-  var advanced = r16.ties.some(function (t) { return (t.a && t.a.team === winnerTeam) || (t.b && t.b.team === winnerTeam); });
-  ok(advanced, 'P8b: the R32 winner (' + winnerTeam + ') advances into a concrete Round-of-16 slot');
+  var feeder = r16.ties.filter(function (t) { return (t.a && t.a.team === winnerTeam) || (t.b && t.b.team === winnerTeam); })[0];
+  ok(!!feeder, 'P8b: the R32 winner (' + winnerTeam + ') advances into a concrete Round-of-16 slot');
+
+  // (3) The OTHER side of that R16 tie (its R32 feeder is unplayed here) shows the
+  // two candidate teams, not just "Winner of Match NN" — so the bracket reads
+  // "Canada v NED/MAR" rather than "Canada v Winner of Match 75".
+  if (feeder) {
+    var openCands = (feeder.a && feeder.a.team === winnerTeam) ? feeder.bCands : feeder.aCands;
+    ok(!!(openCands && openCands[0] && openCands[1]),
+      'P8b: the undecided side of the R16 tie shows both candidate teams (' + (openCands ? openCands.join('/') : 'none') + ')');
+  }
 })();
 
 console.log('Phase 8 — RENDER layer: knocked-out teams are greyed in the dashboard');
