@@ -157,6 +157,8 @@ body {
 .team-out { opacity: 0.4; }
 .team-out, .team-out b { text-decoration: line-through; }
 .team-out .qbadge { text-decoration: none; }
+.winner-note { margin: 0 2px 10px; padding: 8px 12px; border-radius: 8px; background: rgba(244,196,48,0.12); border: 1px solid rgba(244,196,48,0.35); color: var(--gold); font-size: 14px; }
+.winner-note b { color: var(--white); }
 .q-ok { color: var(--green); }
 .q-no { color: var(--red); }
 .q-prov {

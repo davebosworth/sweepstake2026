@@ -50,6 +50,9 @@
     var st = Live.get();
     var disc = S.disciplinary(st);
     var worst = S.worstTeams(st);
+    var ko = S.knockedOut(st);
+    var groupGames = st.matches.filter(isGroupGame);
+    var groupStageDone = groupGames.length > 0 && groupGames.every(S.isFinished);
     var finished = st.matches.filter(S.isFinished).length;
 
 
@@ -122,9 +125,10 @@
       dt.innerHTML = '<thead><tr><th>#</th><th>Team</th><th>Owner</th><th class="r">🟥</th><th class="r">🟨</th><th class="r">Pts</th></tr></thead>';
       var tb = el('tbody');
       disc.slice(0, 5).forEach(function (r) {
+        var out = !!ko[r.team];
         var tr = el('tr', r.rank === 1 ? { class: 'leader' } : null);
-        var team = WC.flagHTML(r.team) + (r.live ? '<span class="live-dot"></span>' : '') + r.team;
-        tr.innerHTML = '<td>' + r.rank + (r.rank === 1 ? ' ★' : '') + '</td><td>' + team + '</td><td class="muted">' + r.owner +
+        var team = WC.flagHTML(r.team) + (r.live ? '<span class="live-dot"></span>' : '') + r.team + (out ? ' <span class="qbadge q-no">✗</span>' : '');
+        tr.innerHTML = '<td>' + r.rank + (r.rank === 1 ? ' ★' : '') + '</td><td class="' + (out ? 'team-out' : '') + '">' + team + '</td><td class="muted">' + r.owner +
           '</td><td class="r">' + r.red + '</td><td class="r">' + r.yellow + '</td><td class="r b gold">' + r.cardPoints + '</td>';
         tb.appendChild(tr);
       });
@@ -134,6 +138,10 @@
 
     var wWrap = el('div', { class: 'panel' });
     wWrap.appendChild(el('h2', null, ['Worst Teams']));
+    // Group stage over → the wooden spoon is settled; name the winner.
+    if (groupStageDone && worst.length) {
+      wWrap.appendChild(el('p', { class: 'winner-note' }, ['🥄 Wooden spoon won by ', el('b', null, [worst[0].owner]), ' with ', el('b', null, [worst[0].team])]));
+    }
     if (!worst.length) wWrap.appendChild(el('p', { class: 'empty' }, ['No qualifying teams yet.']));
     else {
       var wt = el('table', { class: 'tbl' });
