@@ -266,6 +266,23 @@
     return y + h;
   }
 
+  // Wooden-spoon result card — shown instead of the Worst Teams race once the
+  // group stage is over and the prize is settled (the wooden spoon freezes after
+  // the groups). Names the winning (i.e. worst) team and its owner.
+  function woodenSpoonResult(parts, y, r) {
+    var h = 140;
+    card(parts, y, h);
+    parts.push(text(M + PAD, y + 48, 'WOODEN SPOON · SETTLED', { fill: T.muted, size: 22, weight: 'bold', spacing: 3 }));
+    var tx = M + PAD;
+    var tf = flagFor(r.team);
+    if (tf) { flagImage(parts, tx, y + 74, 44, tf); tx += 58; }
+    parts.push(text(tx, y + 108, r.team, { fill: T.white, size: 36, weight: 'bold' }));
+    parts.push(text(M + CW - PAD, y + 74, r.owner, { fill: T.gold, size: 30, weight: 'bold', anchor: 'end' }));
+    var gd = (r.GD > 0 ? '+' : '') + r.GD;
+    parts.push(text(M + CW - PAD, y + 110, r.Pts + ' pts · ' + gd + ' GD', { fill: T.muted, size: 24, anchor: 'end' }));
+    return y + h;
+  }
+
   function chip(parts, x, y, label, fill, textFill) {
     var w = 30 + String(label).length * 14;
     parts.push(rect(x, y - 22, w, 32, { rx: 8, fill: fill }));
@@ -273,8 +290,10 @@
     return w;
   }
 
-  // Disciplinary leaderboard card.
-  function disciplinaryTable(parts, y, rows) {
+  // Disciplinary leaderboard card. `ko` (team -> 1) greys + strikes any team
+  // that's already knocked out, matching the allocations sheet's convention.
+  function disciplinaryTable(parts, y, rows, ko) {
+    ko = ko || {};
     var rowH = 64, headH = 56;
     var h = headH + Math.max(rows.length, 1) * rowH + 24;
     card(parts, y, h);
@@ -303,11 +322,14 @@
       if (i % 2 === 1) parts.push(rect(M + 12, ry, CW - 24, rowH, { rx: 10, fill: '#0d3225' }));
 
       var ty = ry + 42;
+      var out = !!ko[r.team];
       parts.push(text(cRank, ty, r.rank + (leading ? ' ★' : ''), { fill: T.gold, size: 26, weight: 'bold' }));
       var tf = flagFor(r.team);
       if (tf) flagImage(parts, cTeam, ty - 27, 32, tf);
-      parts.push(text(cTeam + (tf ? 42 : 0), ty, r.team, { fill: T.white, size: 26, weight: 'bold' }));
-      parts.push(text(cOwner, ty, r.owner, { fill: leading ? T.gold : T.muted, size: 24, weight: leading ? 'bold' : 'normal' }));
+      var tx = cTeam + (tf ? 42 : 0);
+      parts.push(text(tx, ty, r.team, { fill: out ? T.red : T.white, size: 26, weight: 'bold', opacity: out ? 0.75 : 1 }));
+      if (out) parts.push('<line x1="' + tx + '" y1="' + (ty - 8) + '" x2="' + (tx + r.team.length * 16 + 6) + '" y2="' + (ty - 8) + '" stroke="' + T.red + '" stroke-width="3" opacity="0.85" />');
+      parts.push(text(cOwner, ty, r.owner, { fill: leading && !out ? T.gold : T.muted, size: 24, weight: leading ? 'bold' : 'normal', opacity: out ? 0.75 : 1 }));
 
       var cx = cChips;
       if (r.red > 0) { cx += chip(parts, cx, ty - 6, r.red, T.red, '#1a0b08') + 10; }
@@ -348,6 +370,14 @@
 
     var worst = WC.Standings.worstTeams(state);
     var disc = WC.Standings.disciplinary(state);
+    var ko = WC.Standings.knockedOut(state);
+    // The group stage is over (and the wooden spoon settled) once every group has
+    // all its teams on three games — the same "finished group" test used elsewhere.
+    var gTables = WC.Standings.groupTables(state);
+    var gKeys = Object.keys(gTables).filter(function (k) { return k !== 'Unassigned'; });
+    var groupStageDone = gKeys.length > 0 && gKeys.every(function (k) {
+      return gTables[k].length > 0 && gTables[k].every(function (r) { return r.P >= 3; });
+    });
 
     var parts = [];
     var y = 0;
@@ -399,15 +429,21 @@
     }
     y += 14;
 
-    // -- Worst Teams --
-    y = sectionHeading(parts, y, 'Worst Teams · Fewest Points') + 8;
-    y = worstTable(parts, y, worst) + 34;
+    // -- Worst Teams / Wooden Spoon (the table while it's a race; the result once
+    //    the group stage is over and the prize is settled) --
+    if (groupStageDone && worst.length) {
+      y = sectionHeading(parts, y, 'Wooden Spoon') + 8;
+      y = woodenSpoonResult(parts, y, worst[0]) + 34;
+    } else {
+      y = sectionHeading(parts, y, 'Worst Teams · Fewest Points') + 8;
+      y = worstTable(parts, y, worst) + 34;
+    }
 
     // -- Disciplinary --
     y = sectionHeading(parts, y, 'Disciplinary Prize') + 6;
     parts.push(text(M, y, 'Red = 3 · Yellow = 1 · most points wins', { fill: T.muted, size: 22 }));
     y += 22;
-    y = disciplinaryTable(parts, y, disc.slice(0, 5)) + 30;
+    y = disciplinaryTable(parts, y, disc.slice(0, 5), ko) + 30;
 
     // -- Footer --
     var note = state.footerNote || (fixtures.length ? 'Late kick-offs land in tomorrow’s report.' : 'All confirmed results shown.');

@@ -224,6 +224,44 @@ console.log('Phase 8b — KNOCKOUT stage: losers surface as "knocked out" and th
   }
 })();
 
+console.log('Phase 8c — MORNING REPORT: knocked-out teams struck in disciplinary; wooden spoon shows the result');
+(function reportTest() {
+  function mk(h, a, hs, as, date, cards) {
+    return { _espnId: h + '|' + a, home: h, away: a, homeScore: hs, awayScore: as, status: 'ft', group: 'Group B', date: date, _ts: Date.parse(date + 'T18:00:00Z'), cards: cards || [] };
+  }
+  // Finished Group B: Qatar bottom (eliminated) and carrying a red card, so it's
+  // in both the Disciplinary table and knockedOut(). One complete group → the
+  // group stage (and the wooden spoon) is settled.
+  var done = { matches: [
+    mk('Switzerland', 'Qatar', 1, 1, '2026-06-13', [{ team: 'away', player: 'A', type: 'red' }]),
+    mk('Canada', 'Bosnia', 1, 0, '2026-06-13'),
+    mk('Canada', 'Qatar', 2, 1, '2026-06-18'),
+    mk('Switzerland', 'Bosnia', 1, 1, '2026-06-18'),
+    mk('Bosnia', 'Qatar', 2, 1, '2026-06-24'),
+    mk('Switzerland', 'Canada', 1, 0, '2026-06-24')
+  ] };
+  var ko = S.knockedOut(done), disc5 = S.disciplinary(done).slice(0, 5);
+  ok(!!ko['Qatar'] && disc5.some(function (r) { return r.team === 'Qatar'; }), 'P8c: Qatar is knocked out AND in the Disciplinary top 5');
+
+  var rep = null;
+  if (noThrow('P8c:Report.build (settled)', function () { rep = WC.Report.build(done, { flags: {}, reportDate: '2026-06-25' }); })) {
+    // T.red = '#e8503a' — one red strike <line> per knocked-out disciplinary row.
+    var strikes = (rep.svg.match(/<line [^>]*stroke="#e8503a"/g) || []).length;
+    var outInDisc = disc5.filter(function (r) { return ko[r.team]; }).length;
+    ok(strikes === outInDisc && strikes > 0, 'P8c: every knocked-out disciplinary row is struck through (' + strikes + ' = ' + outInDisc + ')');
+    ok(rep.svg.indexOf('WOODEN SPOON · SETTLED') !== -1, 'P8c: the Wooden Spoon result card is shown once the group stage is settled');
+    ok(rep.svg.indexOf('WORST TEAMS') === -1, 'P8c: the Worst Teams race table is replaced by the result');
+  }
+
+  // While the group stage is still running, the race table stays (no result card).
+  var racing = { matches: done.matches.filter(function (m) { return m.date !== '2026-06-24'; }) };  // drop matchday 3
+  var rep2 = null;
+  if (noThrow('P8c:Report.build (in progress)', function () { rep2 = WC.Report.build(racing, { flags: {}, reportDate: '2026-06-19' }); })) {
+    ok(rep2.svg.indexOf('WORST TEAMS') !== -1, 'P8c: mid-group-stage, the Worst Teams race table is shown');
+    ok(rep2.svg.indexOf('WOODEN SPOON · SETTLED') === -1, 'P8c: mid-group-stage, no settled wooden-spoon result card');
+  }
+})();
+
 console.log('Phase 8 — RENDER layer: knocked-out teams are greyed in the dashboard');
 // Regression test for the real-data bug: a freshly-eliminated team (e.g. Qatar,
 // 4th in a finished group) showed a red ✗ in the Standings table but was NOT
