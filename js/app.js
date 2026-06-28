@@ -634,6 +634,9 @@
   }
 
   /* ---- TAB: Fixtures & Results (read-only) -------------------------------- */
+  // A group-stage match (vs. a knockout fixture), by its group label.
+  function isGroupGame(m) { return /group\s+[a-l]\b/i.test(m.group || ''); }
+
   function renderFixtures() {
     var st = Live.get();
     var root = el('div');
@@ -646,13 +649,31 @@
 
     root.appendChild(el('p', { class: 'count' }, [st.matches.length + ' matches · live from ESPN' + (st.detailLoading ? ' · loading scorers & cards…' : '')]));
 
-    var byDate = {};
-    st.matches.forEach(function (m) { (byDate[m.date || 'Undated'] = byDate[m.date || 'Undated'] || []).push(m); });
-    Object.keys(byDate).sort().forEach(function (date) {
-      root.appendChild(el('h3', { class: 'date-head' }, [date === 'Undated' ? 'Undated' : prettyDate(date)]));
-      byDate[date].sort(byKickoff)
-        .forEach(function (m) { root.appendChild(matchRow(m)); });
-    });
+    // Lay matches out by date into the given container.
+    function byDateInto(matches, container) {
+      var byDate = {};
+      matches.forEach(function (m) { (byDate[m.date || 'Undated'] = byDate[m.date || 'Undated'] || []).push(m); });
+      Object.keys(byDate).sort().forEach(function (date) {
+        container.appendChild(el('h3', { class: 'date-head' }, [date === 'Undated' ? 'Undated' : prettyDate(date)]));
+        byDate[date].sort(byKickoff).forEach(function (m) { container.appendChild(matchRow(m)); });
+      });
+    }
+
+    var groupGames = st.matches.filter(isGroupGame);
+    var koGames = st.matches.filter(function (m) { return !isGroupGame(m); });
+
+    // Knockout fixtures shown directly; the group stage is rolled into a
+    // collapsed section so it stays out of the way once the knockouts begin.
+    if (koGames.length) byDateInto(koGames, root);
+    if (groupGames.length) {
+      var det = el('details', { class: 'fx-group' });
+      det.appendChild(el('summary', null, [el('b', null, ['Group Stage']),
+        el('span', { class: 'muted small' }, ['  ' + groupGames.length + ' matches'])]));
+      var body = el('div', { class: 'fx-group-body' });
+      byDateInto(groupGames, body);
+      det.appendChild(body);
+      root.appendChild(det);
+    }
     return root;
   }
 
@@ -669,7 +690,7 @@
     ]);
     var metaLine = el('div', { class: 'mr-meta muted' }, [
       el('span', null, [WC.ownerOf(m.home) + ' v ' + WC.ownerOf(m.away)]),
-      (m.group ? el('span', { class: 'mr-group' }, [m.group]) : null)
+      (isGroupGame(m) ? el('span', { class: 'mr-group' }, [m.group]) : null)   // group label on group games only
     ]);
     var head = el('div', { class: 'match-head' }, [teamLine, metaLine]);
 
@@ -826,16 +847,18 @@
 
   /* ---- TAB: Bracket (indicative, from current tables) --------------------- */
   function bracketTieEl(t) {
-    function side(o, ref) {
+    function side(o, ref, cands) {
+      // Next round: show the two candidate teams as codes (e.g. "GER/PAR").
+      if (cands) return el('span', { class: 'ko-team muted ko-cands' }, [cands.map(WC.abbrOf).join('/')]);
       if (ref) return el('span', { class: 'ko-team muted' }, [ref]);
       if (!o.team) return el('span', { class: 'ko-team muted' }, [o.from]);  // not filled yet
       return el('span', { class: 'ko-team' + (o.third ? ' ko-third' : '') }, [flagEl(o.team), el('b', null, [o.team]), el('span', { class: 'ko-from' }, ['(' + o.from + ')'])]);
     }
     return el('div', { class: 'ko-match' }, [
       el('span', { class: 'ko-game' }, ['Match ' + t.game]),
-      side(t.a, t.aRef),
+      side(t.a, t.aRef, t.aCands),
       el('span', { class: 'ko-vs muted' }, ['v']),
-      side(t.b, t.bRef)
+      side(t.b, t.bRef, t.bCands)
     ]);
   }
 
@@ -1098,8 +1121,8 @@
   var TABS = [
     ['dashboard', 'Dashboard', renderDashboard],
     ['fixtures', 'Fixtures & Results', renderFixtures],
-    ['standings', 'Standings', renderStandings],
     ['bracket', 'Bracket', renderBracket],
+    ['standings', 'Standings', renderStandings],
     ['odds', 'Winner Odds', renderOdds],
     ['projections', 'Projections', renderProjections],
     ['players', 'Player Tracker', renderPlayers],

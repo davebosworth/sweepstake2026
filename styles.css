@@ -118,6 +118,16 @@ body {
 .ko-match { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; padding: 7px 10px; background: var(--card-2); border: 1px solid var(--border); border-radius: 8px; }
 .ko-team { display: inline-flex; align-items: center; min-width: 0; }
 .ko-team.win { color: var(--green); font-weight: bold; }
+.ko-cands { font-weight: 600; letter-spacing: 0.4px; color: var(--white); opacity: 0.85; }
+
+/* Collapsible "Group Stage" block on the Fixtures page */
+.fx-group { background: var(--card); border: 1px solid var(--border); border-radius: 12px; margin-top: 16px; padding: 2px 14px; }
+.fx-group > summary { cursor: pointer; padding: 12px 2px; display: flex; align-items: baseline; gap: 8px; list-style: none; }
+.fx-group > summary::-webkit-details-marker { display: none; }
+.fx-group > summary::before { content: '▸'; color: var(--muted); font-size: 11px; }
+.fx-group[open] > summary::before { content: '▾'; }
+.fx-group-body { padding-bottom: 8px; }
+.fx-group-body .date-head:first-child { margin-top: 4px; }
 .ko-from { color: var(--muted); font-weight: normal; font-size: 10px; margin-left: 5px; }
 .ko-third b { color: var(--gold); }
 .ko-game { color: var(--gold); font-weight: bold; font-size: 11px; min-width: 48px; flex: none; }

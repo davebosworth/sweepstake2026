@@ -332,8 +332,14 @@
     }
     var r32 = R32_DEF.map(function (m) { return { game: m.game, a: slot(m.a, m.game), b: slot(m.b, m.game) }; });
     function ref(code) { return (code[0] === 'W' ? 'Winner of Match ' : 'Runner-up of Match ') + code.slice(1); }
+    // The two teams contesting each Round-of-32 match, so the next round can show
+    // the candidate sides (e.g. "GER/PAR") instead of "Winner of Match 74".
+    var r32Teams = {}; r32.forEach(function (m) { r32Teams[m.game] = [m.a.team || null, m.b.team || null]; });
+    function cands(code) { return r32Teams[code.slice(1)] || null; }   // only R32 feeders are concrete
     var later = LATER_DEF.map(function (rd) {
-      return { name: rd.round, ties: rd.ties.map(function (t) { return { game: t.game, aRef: ref(t.a), bRef: ref(t.b) }; }) };
+      return { name: rd.round, ties: rd.ties.map(function (t) {
+        return { game: t.game, aRef: ref(t.a), bRef: ref(t.b), aCands: cands(t.a), bCands: cands(t.b) };
+      }) };
     });
     return { rounds: [{ name: 'Round of 32', ties: r32 }].concat(later) };
   }

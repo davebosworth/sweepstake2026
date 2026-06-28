@@ -62,6 +62,28 @@
     "New Zealand": '1f1f3-1f1ff'
   };
 
+  // team name -> FIFA three-letter code (for compact bracket labels)
+  WC.ABBR = {
+    "Sweden": 'SWE', "Uzbekistan": 'UZB', "Tunisia": 'TUN', "Japan": 'JPN',
+    "Switzerland": 'SUI', "England": 'ENG', "Türkiye": 'TUR', "South Africa": 'RSA',
+    "Scotland": 'SCO', "Australia": 'AUS', "Croatia": 'CRO', "Holland": 'NED',
+    "Iraq": 'IRQ', "Saudi Arabia": 'KSA', "Panama": 'PAN', "Iran": 'IRN',
+    "Morocco": 'MAR', "France": 'FRA', "DR Congo": 'COD', "Qatar": 'QAT',
+    "Algeria": 'ALG', "Canada": 'CAN', "Mexico": 'MEX', "Brazil": 'BRA',
+    "Haiti": 'HAI', "Jordan": 'JOR', "Paraguay": 'PAR', "Ecuador": 'ECU',
+    "Colombia": 'COL', "Portugal": 'POR', "Bosnia": 'BIH', "Ghana": 'GHA',
+    "Norway": 'NOR', "Austria": 'AUT', "Germany": 'GER', "Argentina": 'ARG',
+    "Czechia": 'CZE', "Cape Verde": 'CPV', "Egypt": 'EGY', "South Korea": 'KOR',
+    "Uruguay": 'URU', "Spain": 'ESP', "Curaçao": 'CUW', "Ivory Coast": 'CIV',
+    "Senegal": 'SEN', "USA": 'USA', "Belgium": 'BEL', "New Zealand": 'NZL'
+  };
+
+  // Three-letter code for a team; falls back to the first three letters upper-cased.
+  WC.abbrOf = function (team) {
+    if (!team) return '?';
+    return WC.ABBR[team] || team.replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase();
+  };
+
   // Path to a team's flag SVG, or null if unknown.
   WC.flagSrc = function (team) {
     var code = team && WC.FLAG[team];
