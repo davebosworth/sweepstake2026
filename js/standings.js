@@ -326,7 +326,7 @@
           meta[r.team] = { group: key, maxPts: r.Pts, everTop2: i < 2 };
         });
         minThird[key] = maxThird[key] = sorted[2] ? sorted[2].Pts : 0;
-        if (sorted[2]) completeThirds.push({ team: sorted[2].team, group: key, pts: sorted[2].Pts });
+        if (sorted[2]) completeThirds.push({ team: sorted[2].team, group: key, pts: sorted[2].Pts, rec: sorted[2] });
         return;
       }
 
@@ -389,6 +389,17 @@
       groupKeys.forEach(function (g) { if (g !== ct.group && (maxThird[g] || 0) >= ct.pts) threats++; });
       if (threats <= 7) status[ct.team] = 'through';
     });
+
+    // Once EVERY group is finished the third-place table is final: rank all twelve
+    // thirds by the full 2026 tiebreakers (the same order the Third-Place Race
+    // table uses) and settle them definitively — the best eight go through, the
+    // other four are knocked out (decided on goal difference where points tie).
+    if (completeThirds.length === Object.keys(byTeams).length) {
+      completeThirds.slice().sort(function (a, b) {
+        var x = a.rec, y = b.rec;
+        return (y.Pts - x.Pts) || (y.GD - x.GD) || (y.GF - x.GF) || ((x.cardPoints || 0) - (y.cardPoints || 0)) || x.team.localeCompare(y.team);
+      }).forEach(function (ct, i) { status[ct.team] = i < 8 ? 'through' : 'eliminated'; });
+    }
 
     return status;
   }
