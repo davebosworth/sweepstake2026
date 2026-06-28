@@ -427,6 +427,58 @@
     return { svg: svg, width: W, height: H };
   }
 
+  /* ---- Allocations sheet: who owns which teams, with knock-outs marked ----- */
+  function buildAllocations(state, opts) {
+    opts = opts || {};
+    FLAGS = opts.flags || {};
+    var ko = WC.Standings.knockedOut(state);
+    var reportDate = opts.reportDate || new Date().toISOString().slice(0, 10);
+    var parts = [], y = 0;
+
+    var headH = 150;
+    parts.push(rect(M, 40, CW, headH, { rx: T.radius, fill: T.cardFill, stroke: T.cardBorder, sw: 2 }));
+    parts.push(rect(M, 40, CW, 10, { rx: 6, fill: T.gold }));
+    parts.push(text(M + PAD, 104, 'World Cup 2026 · Sweepstake', { fill: T.white, size: 40, weight: 'bold' }));
+    parts.push(text(M + PAD, 144, 'TEAM ALLOCATIONS', { fill: T.green, size: 26, weight: 'bold', spacing: 4 }));
+    var totalOut = WC.PLAYERS.reduce(function (n, p) { return n + p.teams.filter(function (t) { return ko[t]; }).length; }, 0);
+    parts.push(text(M + CW - PAD, 100, totalOut + ' / ' + (WC.PLAYERS.length * 6) + ' out', { fill: T.gold, size: 32, weight: 'bold', anchor: 'end' }));
+    parts.push(text(M + CW - PAD, 138, prettyDate(reportDate), { fill: T.muted, size: 22, anchor: 'end' }));
+    y = 40 + headH + 28;
+
+    WC.PLAYERS.forEach(function (p) {
+      var nOut = p.teams.filter(function (t) { return ko[t]; }).length;
+      var rowH = 98;
+      parts.push(rect(M, y, CW, rowH, { rx: 14, fill: T.cardFill, stroke: T.cardBorder, sw: 2 }));
+      parts.push(text(M + PAD, y + 42, p.name, { fill: T.gold, size: 30, weight: 'bold' }));
+      parts.push(text(M + PAD, y + 74, (6 - nOut) + ' left · ' + nOut + ' out', { fill: nOut ? T.red : T.muted, size: 20, weight: nOut ? 'bold' : 'normal' }));
+
+      var chipsX = M + 232, chipsW = CW - 232 - PAD, n = p.teams.length, cw = chipsW / n, midY = y + rowH / 2;
+      p.teams.forEach(function (team, i) {
+        var out = !!ko[team];
+        var fx = chipsX + i * cw + (cw - 90) / 2;
+        var uri = flagFor(team), op = out ? 0.4 : 1;
+        if (uri) parts.push('<image x="' + fx + '" y="' + (midY - 18) + '" width="36" height="36" href="' + uri + '" opacity="' + op + '" preserveAspectRatio="xMidYMid meet"/>');
+        parts.push(text(fx + 46, midY + 8, WC.abbrOf(team), { fill: out ? T.red : T.white, size: 23, weight: 'bold', opacity: out ? 0.85 : 1 }));
+        if (out) parts.push('<line x1="' + (fx - 2) + '" y1="' + (midY + 2) + '" x2="' + (fx + 92) + '" y2="' + (midY + 2) + '" stroke="' + T.red + '" stroke-width="3"/>');
+      });
+      y += rowH + 16;
+    });
+
+    parts.push(text(W / 2, y + 4, 'Teams with a line through are knocked out (group stage or a lost knockout tie).', { fill: T.muted, size: 20, anchor: 'middle' }));
+    y += 44;
+
+    var H = y;
+    var svg =
+      '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '">' +
+      '<defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">' +
+      '<stop offset="0" stop-color="' + T.bgTop + '"/><stop offset="1" stop-color="' + T.bgBottom + '"/>' +
+      '</linearGradient></defs>' +
+      '<rect x="0" y="0" width="' + W + '" height="' + H + '" fill="url(#bg)"/>' +
+      parts.join('') +
+      '</svg>';
+    return { svg: svg, width: W, height: H };
+  }
+
   // Render an SVG string to a PNG Blob at the given pixel scale.
   function toPNG(built, scale, cb) {
     scale = scale || 2;
@@ -447,6 +499,6 @@
     img.src = url;
   }
 
-  WC.Report = { build: build, toPNG: toPNG };
+  WC.Report = { build: build, buildAllocations: buildAllocations, toPNG: toPNG };
 
 })(window.WC = window.WC || {});

@@ -438,6 +438,21 @@
     return Object.keys(st).filter(function (t) { return st[t] === 'eliminated'; });
   }
 
+  // Every knocked-out team -> 1: group-stage eliminations PLUS the losers of any
+  // finished knockout (cross-group) match. A knockout level after 90/120 is
+  // settled on penalties, which the score may not capture, so equal-score
+  // knockouts are skipped (no loser inferred).
+  function knockedOut(state) {
+    var status = groupStatus(state), out = {};
+    Object.keys(status).forEach(function (t) { if (status[t] === 'eliminated') out[t] = 1; });
+    (state.matches || []).forEach(function (m) {
+      if (!isFinished(m) || /group\s+[a-l]\b/i.test(m.group || '')) return;   // group games handled above
+      if (m.homeScore == null || m.awayScore == null || m.homeScore === m.awayScore) return;
+      out[m.homeScore > m.awayScore ? m.away : m.home] = 1;
+    });
+    return out;
+  }
+
   // Teams whose elimination became certain ON `day` (out as of `day`, but not as
   // of the day before) — i.e. knocked out by that day's results.
   function newlyEliminated(state, day) {
@@ -455,6 +470,7 @@
     groupStatus: groupStatus,
     thirdPlaceRace: thirdPlaceRace,
     eliminatedAsOf: eliminatedAsOf,
+    knockedOut: knockedOut,
     newlyEliminated: newlyEliminated,
     isFinished: isFinished,
     isCounting: isCounting

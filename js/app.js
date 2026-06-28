@@ -883,23 +883,50 @@
 
   /* ---- TAB: Allocations --------------------------------------------------- */
   function renderAllocations() {
-    var status = S.groupStatus(Live.get());
+    var ko = S.knockedOut(Live.get());
     var root = el('div', { class: 'panel' });
-    root.appendChild(el('h2', null, ['Team Allocations']));
+    var exportBtn = el('button', { class: 'btn small', type: 'button', style: 'float:right', onclick: function (e) { exportAllocationsPNG(e.currentTarget); } }, ['⬇ Export PNG']);
+    root.appendChild(el('h2', null, ['Team Allocations', exportBtn]));
     var t = el('table', { class: 'tbl alloc' });
     t.innerHTML = '<thead><tr><th>Player</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th></tr></thead>';
     var tb = el('tbody');
     WC.PLAYERS.forEach(function (p) {
       var tr = el('tr');
       tr.innerHTML = '<td class="b gold">' + p.name + '</td>' + p.teams.map(function (t) {
-        var out = status[t] === 'eliminated';
+        var out = !!ko[t];
         return '<td class="' + (out ? 'team-out' : '') + '">' + WC.flagHTML(t) + t + (out ? ' <span class="qbadge q-no">✗</span>' : '') + '</td>';
       }).join('');
       tb.appendChild(tr);
     });
     t.appendChild(tb); root.appendChild(t);
-    root.appendChild(el('p', { class: 'muted small', style: 'margin:10px 2px 0' }, ['Greyed-out teams have been knocked out of the group stage.']));
+    root.appendChild(el('p', { class: 'muted small', style: 'margin:10px 2px 0' }, ['Greyed-out teams have been knocked out (group stage or a lost knockout tie). Export PNG saves a shareable allocations sheet.']));
     return root;
+  }
+
+  // Rasterise every allocated team's flag, then build + download the allocations
+  // PNG (same SVG → canvas → PNG pipeline as the Morning Report).
+  function ensureAllocationFlags(cb) {
+    var codes = {};
+    WC.TEAMS.forEach(function (t) { var c = WC.FLAG && WC.FLAG[t]; if (c && !flagPNGCache[c]) codes[c] = 1; });
+    var list = Object.keys(codes);
+    if (!list.length) return cb();
+    Promise.all(list.map(rasterizeFlag)).then(cb, cb);
+  }
+  function exportAllocationsPNG(btn) {
+    var label = btn && btn.textContent;
+    if (btn) { btn.disabled = true; btn.textContent = 'Rendering…'; }
+    ensureAllocationFlags(function () {
+      var built = R.buildAllocations(Live.get(), { flags: flagPNGCache, reportDate: todayISO() });
+      R.toPNG(built, 2, function (blob) {
+        if (btn) { btn.disabled = false; btn.textContent = label; }
+        if (!blob) { alert('Export failed.'); return; }
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'wc26-allocations-' + todayISO() + '.png';
+        a.click();
+        setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+      });
+    });
   }
 
   /* ---- TAB: Morning Report ----------------------------------------------- */
