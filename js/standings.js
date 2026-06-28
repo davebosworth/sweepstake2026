@@ -443,15 +443,37 @@
     return Object.keys(st).filter(function (t) { return st[t] === 'eliminated'; });
   }
 
-  // Every knocked-out team -> 1: group-stage eliminations PLUS the losers of any
-  // finished knockout (cross-group) match. A knockout level after 90/120 is
-  // settled on penalties, which the score may not capture, so equal-score
-  // knockouts are skipped (no loser inferred).
+  // Every knocked-out team -> 1. Three sources:
+  //  1. mid-group-stage mathematical eliminations (groupStatus);
+  //  2. for any FINISHED group, read the frozen table directly — anyone outside
+  //     the top two who isn't a qualifying best-8 third is out. This is robust:
+  //     it doesn't depend on the brute-force status path, so a team that's plainly
+  //     bottom of a completed group (e.g. 4th place) is always flagged;
+  //  3. the losers of any finished knockout tie (equal-score/penalty ties skipped,
+  //     since the score may not name the winner).
   function knockedOut(state) {
     var status = groupStatus(state), out = {};
     Object.keys(status).forEach(function (t) { if (status[t] === 'eliminated') out[t] = 1; });
+
+    var tables = groupTables(state), race = thirdPlaceRace(state);
+    function finished(rows) { return rows.length > 0 && rows.every(function (r) { return r.P >= 3; }); }
+    var groupKeys = Object.keys(tables).filter(function (g) { return g !== 'Unassigned'; });
+    var doneGroups = groupKeys.filter(function (g) { return finished(tables[g]); });
+    var allDone = groupKeys.length > 0 && doneGroups.length === groupKeys.length;
+    // The 4th-placed team of any finished group is out — it can never qualify.
+    doneGroups.forEach(function (g) { var r = tables[g][3]; if (r) out[r.team] = 1; });
+    // Only once the WHOLE group stage is finished is the best-8-thirds cut final;
+    // then a 3rd-placed team outside the qualifying eight is out too. (Before that
+    // a 3rd could still climb into the eight as other groups finish.)
+    if (allDone) {
+      var qualifying = {};
+      doneGroups.forEach(function (g) { tables[g].forEach(function (r, i) { if (i < 2) qualifying[r.team] = 1; }); });
+      race.forEach(function (r) { if (r.qualifying) qualifying[r.team] = 1; });
+      doneGroups.forEach(function (g) { var r = tables[g][2]; if (r && !qualifying[r.team]) out[r.team] = 1; });
+    }
+
     (state.matches || []).forEach(function (m) {
-      if (!isFinished(m) || /group\s+[a-l]\b/i.test(m.group || '')) return;   // group games handled above
+      if (!isFinished(m) || /group\s+[a-l]\b/i.test(m.group || '')) return;   // knockout ties only
       if (m.homeScore == null || m.awayScore == null || m.homeScore === m.awayScore) return;
       out[m.homeScore > m.awayScore ? m.away : m.home] = 1;
     });
