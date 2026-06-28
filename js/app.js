@@ -58,8 +58,6 @@
 
     var root = el('div');
 
-    if (typeof location !== 'undefined' && /debug/i.test(location.hash || '')) root.appendChild(debugPanel(st, disc, ko));
-
     // Knocked Out — teams eliminated by the latest day's results.
     var lastDay = st.matches.filter(S.isFinished).reduce(function (mx, m) { return (m.date && m.date > mx) ? m.date : mx; }, '');
     var newlyOut = lastDay ? S.newlyEliminated(st, lastDay) : [];
@@ -162,36 +160,6 @@
     col.appendChild(wWrap);
     root.appendChild(col);
     return root;
-  }
-
-  // Diagnostic dump (only when the URL hash contains "debug"). Shows, for each
-  // dirtiest-table team, its group, group-stage record and status — plus that
-  // group's raw matches — to explain why a team is/isn't flagged knocked out.
-  function debugPanel(st, disc, ko) {
-    var status = S.groupStatus(st);
-    var lines = ['== DEBUG: dirtiest teams ==='];
-    disc.slice(0, 5).forEach(function (r) {
-      var grp = (r.group || '?');
-      lines.push(r.team + '  grp=' + grp + '  status=' + (status[r.team] || 'undefined') + '  ko=' + (!!ko[r.team]));
-      var letter = (/group\s+([a-l])/i.exec(grp) || [])[1];
-      if (letter) {
-        st.matches.filter(function (m) {
-          return (m.home === r.team || m.away === r.team);
-        }).forEach(function (m) {
-          lines.push('   ' + (m.home || '?') + ' ' + (m.homeScore == null ? '-' : m.homeScore) + ':' + (m.awayScore == null ? '-' : m.awayScore) + ' ' + (m.away || '?') + '  [' + m.status + '] grp="' + (m.group || '') + '"');
-        });
-      }
-    });
-    // distinct group labels seen across matches
-    var gc = {}; st.matches.forEach(function (m) { var k = m.group || '(none)'; gc[k] = (gc[k] || 0) + 1; });
-    lines.push('--- group labels ---');
-    Object.keys(gc).sort().forEach(function (k) { lines.push('   "' + k + '": ' + gc[k]); });
-    var pre = el('pre', { style: 'white-space:pre-wrap;font-size:11px;background:#0d3225;border:1px solid var(--border);border-radius:8px;padding:10px;overflow:auto' });
-    pre.textContent = lines.join('\n');
-    var panel = el('div', { class: 'panel' });
-    panel.appendChild(el('h2', null, ['Debug']));
-    panel.appendChild(pre);
-    return panel;
   }
 
   function statCard(label, value) {
