@@ -176,6 +176,45 @@ var odds = WC.TEAMS.map(function (t, i) { return { team: t, winnerProb: i < 30 ?
 ok(noThrow('P7:project', function () { if (!WC.Sim.project(s5, odds, 300)) throw new Error('null'); }), 'P7: Monte Carlo runs');
 ok(noThrow('P7:report', function () { WC.Report.build(s5, { flags: {}, reportDate: '2030-06-20' }); WC.Report.buildAllocations(s6, { flags: {}, reportDate: '2030-06-20' }); }), 'P7: PNG builders run');
 
+console.log('Phase 8b — KNOCKOUT stage: losers surface as "knocked out" and the bracket advances');
+// Two knockout-stage bugs:
+//  1) the dashboard / Morning Report "Knocked Out" card read newlyEliminated(),
+//     which only reported GROUP-stage exits — a side that lost its knockout tie
+//     never showed up; and
+//  2) currentBracket() filled the Round of 32 from the group tables but never
+//     read played knockout results, so the Round of 16 stayed on "Winner of
+//     Match NN" even after the R32 games were decided.
+// Build a finished R32 tie between the two teams an actual R32 slot pairs, then
+// assert the loser is newly eliminated on the tie's day AND the winner advances.
+(function knockoutStageTest() {
+  var br0 = WC.Sim.currentBracket(s5);
+  var r32def = br0.rounds[0].ties.filter(function (t) { return t.a && t.a.team && t.b && t.b.team; })[0];
+  ok(!!r32def, 'P8b: an R32 tie has two concrete teams to play');
+  if (!r32def) return;
+  var koDate = '2030-07-01';   // group fixtures carry no date, so they always count; this one gates on the cutoff
+  var winnerTeam = r32def.a.team, loserTeam = r32def.b.team;
+  var sko = { matches: s5.matches.concat([
+    { _espnId: 'ko-' + r32def.game, home: winnerTeam, away: loserTeam, group: '', status: 'ft', homeScore: 2, awayScore: 0, date: koDate, _ts: 9000 }
+  ]) };
+
+  // (1) The knockout loser is newly eliminated on the day of the tie — and was
+  // NOT already out the day before (it was a group winner/runner-up, i.e. through).
+  var newly = S.newlyEliminated(sko, koDate);
+  ok(newly.indexOf(loserTeam) !== -1, 'P8b: knockout-tie loser (' + loserTeam + ') is in newlyEliminated on the tie day');
+  ok(S.newlyEliminated(sko, '2030-06-30').indexOf(loserTeam) === -1, 'P8b: the loser was NOT reported out the day before the tie');
+  ok(!!S.knockedOut(sko)[loserTeam], 'P8b: knockout-tie loser is in knockedOut()');
+
+  // (2) currentBracket advances the real winner: the R32 tie is marked decided,
+  // and the Round-of-16 tie fed by that game now carries the winner as a concrete
+  // team instead of only a "Winner of Match NN" placeholder.
+  var br = WC.Sim.currentBracket(sko);
+  var r32 = br.rounds[0].ties.filter(function (t) { return t.game === r32def.game; })[0];
+  ok(r32 && r32.winner === winnerTeam, 'P8b: the played R32 tie reports winner=' + winnerTeam);
+  var r16 = br.rounds.filter(function (r) { return r.name === 'Round of 16'; })[0];
+  var advanced = r16.ties.some(function (t) { return (t.a && t.a.team === winnerTeam) || (t.b && t.b.team === winnerTeam); });
+  ok(advanced, 'P8b: the R32 winner (' + winnerTeam + ') advances into a concrete Round-of-16 slot');
+})();
+
 console.log('Phase 8 — RENDER layer: knocked-out teams are greyed in the dashboard');
 // Regression test for the real-data bug: a freshly-eliminated team (e.g. Qatar,
 // 4th in a finished group) showed a red ✗ in the Standings table but was NOT

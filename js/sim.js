@@ -330,15 +330,57 @@
       var rows = groups['Group ' + g], r = rows && rows[type === 'W' ? 0 : 1];
       return { team: r ? r.team : null, from: (type === 'W' ? 'Winner of Group ' : 'Runner-up of Group ') + g };
     }
-    var r32 = R32_DEF.map(function (m) { return { game: m.game, a: slot(m.a, m.game), b: slot(m.b, m.game) }; });
+
+    // Actual knockout results, so the live bracket advances real winners (R32 →
+    // R16 → …) instead of only ever showing "Winner of Match NN". A finished
+    // knockout tie is identified the same way as knockedOut(): its two teams are
+    // in DIFFERENT groups (an unlabelled group game would otherwise look like a
+    // knockout). Keyed by the unordered team pair; the winner is the scoreline,
+    // or ESPN's winner flag when a level tie went to penalties.
+    var teamGroup = {};
+    Object.keys(groups).forEach(function (g) { if (g !== 'Unassigned') groups[g].forEach(function (r) { teamGroup[r.team] = lab(g); }); });
+    var pairRes = {};
+    (state.matches || []).forEach(function (m) {
+      if (!WC.Standings.isFinished(m) || m.homeScore == null || m.awayScore == null) return;
+      var gh = teamGroup[m.home], ga = teamGroup[m.away];
+      if (!gh || !ga || gh === ga) return;   // same group (or ungrouped) → not a knockout tie
+      var w = m.homeScore > m.awayScore ? m.home : (m.awayScore > m.homeScore ? m.away
+            : (m.winner === 'home' ? m.home : (m.winner === 'away' ? m.away : null)));
+      if (w) pairRes[[m.home, m.away].sort().join(' ')] = { winner: w, loser: w === m.home ? m.away : m.home };
+    });
+    function played(a, b) { return (a && b) ? (pairRes[[a, b].sort().join(' ')] || null) : null; }
+
+    var r32 = R32_DEF.map(function (m) {
+      var t = { game: m.game, a: slot(m.a, m.game), b: slot(m.b, m.game) };
+      var res = played(t.a.team, t.b.team);
+      t.winner = res ? res.winner : null;
+      return t;
+    });
     function ref(code) { return (code[0] === 'W' ? 'Winner of Match ' : 'Runner-up of Match ') + code.slice(1); }
     // The two teams contesting each Round-of-32 match, so the next round can show
     // the candidate sides (e.g. "GER/PAR") instead of "Winner of Match 74".
     var r32Teams = {}; r32.forEach(function (m) { r32Teams[m.game] = [m.a.team || null, m.b.team || null]; });
     function cands(code) { return r32Teams[code.slice(1)] || null; }   // only R32 feeders are concrete
+
+    // Propagate decided winners/losers up the official tree (R32 first, then each
+    // later round in dependency order — same order playTree resolves them).
+    var gWin = {}, gLose = {};
+    r32.forEach(function (m) { if (m.winner) { gWin[m.game] = m.winner; gLose[m.game] = m.winner === m.a.team ? m.b.team : m.a.team; } });
+    function refTeam(code) { var g = code.slice(1); return code[0] === 'W' ? gWin[g] : gLose[g]; }
+    LATER_DEF.forEach(function (rd) { rd.ties.forEach(function (t) {
+      var at = refTeam(t.a), bt = refTeam(t.b), res = played(at, bt);
+      if (res) { gWin[t.game] = res.winner; gLose[t.game] = res.loser; }
+    }); });
+
     var later = LATER_DEF.map(function (rd) {
       return { name: rd.round, ties: rd.ties.map(function (t) {
-        return { game: t.game, aRef: ref(t.a), bRef: ref(t.b), aCands: cands(t.a), bCands: cands(t.b) };
+        var at = refTeam(t.a), bt = refTeam(t.b);
+        return {
+          game: t.game,
+          a: at ? { team: at } : null, b: bt ? { team: bt } : null,   // concrete once the feeding tie is played
+          aRef: ref(t.a), bRef: ref(t.b), aCands: cands(t.a), bCands: cands(t.b),
+          winner: gWin[t.game] || null
+        };
       }) };
     });
     return { rounds: [{ name: 'Round of 32', ties: r32 }].concat(later) };

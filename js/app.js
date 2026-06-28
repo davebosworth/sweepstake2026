@@ -860,18 +860,25 @@
 
   /* ---- TAB: Bracket (indicative, from current tables) --------------------- */
   function bracketTieEl(t) {
-    function side(o, ref, cands) {
-      // Next round: show the two candidate teams as codes (e.g. "GER/PAR").
+    // A concrete team (group slot or an advanced knockout winner) is shown ahead
+    // of any "Winner of Match NN" ref / candidate codes. Once the tie is decided,
+    // the winner is highlighted and the losing side greyed out.
+    function side(o, ref, cands, isWin, isOut) {
+      if (o && o.team) {
+        var cls = 'ko-team' + (o.third ? ' ko-third' : '') + (isWin ? ' win' : '') + (isOut ? ' team-out' : '');
+        return el('span', { class: cls }, [flagEl(o.team), el('b', null, [o.team]),
+          o.from ? el('span', { class: 'ko-from' }, ['(' + o.from + ')']) : null]);
+      }
       if (cands) return el('span', { class: 'ko-team muted ko-cands' }, [cands.map(WC.abbrOf).join('/')]);
       if (ref) return el('span', { class: 'ko-team muted' }, [ref]);
-      if (!o.team) return el('span', { class: 'ko-team muted' }, [o.from]);  // not filled yet
-      return el('span', { class: 'ko-team' + (o.third ? ' ko-third' : '') }, [flagEl(o.team), el('b', null, [o.team]), el('span', { class: 'ko-from' }, ['(' + o.from + ')'])]);
+      return el('span', { class: 'ko-team muted' }, [(o && o.from) || '—']);   // not filled yet
     }
+    var aTeam = t.a && t.a.team, bTeam = t.b && t.b.team;
     return el('div', { class: 'ko-match' }, [
       el('span', { class: 'ko-game' }, ['Match ' + t.game]),
-      side(t.a, t.aRef, t.aCands),
+      side(t.a, t.aRef, t.aCands, t.winner && aTeam === t.winner, t.winner && aTeam && aTeam !== t.winner),
       el('span', { class: 'ko-vs muted' }, ['v']),
-      side(t.b, t.bRef, t.bCands)
+      side(t.b, t.bRef, t.bCands, t.winner && bTeam === t.winner, t.winner && bTeam && bTeam !== t.winner)
     ]);
   }
 

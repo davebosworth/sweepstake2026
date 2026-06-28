@@ -475,17 +475,19 @@
     return thirds;
   }
 
-  // Teams eliminated using only results up to and including `cutoff` (YYYY-MM-DD);
-  // matches dated after the cutoff are treated as not-yet-played.
+  // Teams out using only results up to and including `cutoff` (YYYY-MM-DD);
+  // matches dated after the cutoff are treated as not-yet-played. Uses the full
+  // knockedOut() set — not just group-stage eliminations — so a side that loses a
+  // knockout tie counts as out too (otherwise the "Knocked Out" card and Morning
+  // Report would only ever report group-stage exits).
   function eliminatedAsOf(state, cutoff) {
     var matches = state.matches.map(function (m) {
       if (cutoff && m.date && m.date > cutoff) {
-        return { _espnId: m._espnId, group: m.group, home: m.home, away: m.away, date: m.date, status: 'scheduled', homeScore: null, awayScore: null };
+        return { _espnId: m._espnId, _ts: m._ts, group: m.group, home: m.home, away: m.away, date: m.date, status: 'scheduled', homeScore: null, awayScore: null };
       }
       return m;
     });
-    var st = groupStatus({ matches: matches });
-    return Object.keys(st).filter(function (t) { return st[t] === 'eliminated'; });
+    return Object.keys(knockedOut({ matches: matches }));
   }
 
   // Every knocked-out team -> 1. Three sources:
