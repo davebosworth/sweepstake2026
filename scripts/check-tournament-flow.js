@@ -151,6 +151,9 @@ winners.forEach(function (w, i) {
   s6.matches.push(m);
 });
 ok(runAll(s6, 'P6'), 'P6: subsystems run with knockout fixtures in the feed');
+var sizes6 = S.groupTables(s6);
+var clean6 = Object.keys(sizes6).filter(function (k) { return k !== 'Unassigned'; }).every(function (k) { return sizes6[k].length === 4; });
+ok(clean6, 'P6: every group still has exactly 4 teams (knockout ties do not drag teams between groups)');
 var after = S.groupTables(s6), afterPts = {};
 Object.keys(after).forEach(function (k) { if (k !== 'Unassigned') after[k].forEach(function (r) { afterPts[r.team] = r.Pts + '/' + r.GD; }); });
 var frozen = WC.TEAMS.every(function (t) { return beforePts[t] === afterPts[t]; });

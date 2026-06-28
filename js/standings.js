@@ -53,18 +53,27 @@
     });
 
     // Fallback grouping: a team whose own games were all unlabelled in the feed
-    // inherits its group from the opponents it played — group-stage games are
-    // within a group. Iterated so a fully-unlabelled pair still resolves via a
-    // labelled third team. (Only ungrouped teams change, and ungrouped teams only
-    // exist during the group stage, so knockout ties never mis-propagate.)
+    // inherits its group from the opponents it played. Each team plays its three
+    // group games first (round-robin), so we only ever infer from a team's FIRST
+    // THREE opponents — never a later knockout tie, which is cross-group and would
+    // otherwise drag a side into the wrong group. Iterated so a fully-unlabelled
+    // pair still resolves via a labelled third group-mate.
+    var oppList = {};
+    state.matches.slice().sort(function (x, y) { return (x._ts || 0) - (y._ts || 0); }).forEach(function (m) {
+      if (!m.home || !m.away) return;
+      (oppList[m.home] = oppList[m.home] || []).push(m.away);
+      (oppList[m.away] = oppList[m.away] || []).push(m.home);
+    });
     var changed = true;
     while (changed) {
       changed = false;
-      state.matches.forEach(function (m) {
-        var h = m.home && map[m.home], a = m.away && map[m.away];
-        if (!h || !a) return;
-        if (!h.group && a.group) { h.group = a.group; changed = true; }
-        else if (!a.group && h.group) { a.group = h.group; changed = true; }
+      Object.keys(oppList).forEach(function (t) {
+        if (!map[t] || map[t].group) return;
+        var opps = oppList[t].slice(0, 3);
+        for (var i = 0; i < opps.length; i++) {
+          var o = map[opps[i]];
+          if (o && o.group) { map[t].group = o.group; changed = true; break; }
+        }
       });
     }
 
