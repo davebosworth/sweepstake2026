@@ -176,6 +176,104 @@ var odds = WC.TEAMS.map(function (t, i) { return { team: t, winnerProb: i < 30 ?
 ok(noThrow('P7:project', function () { if (!WC.Sim.project(s5, odds, 300)) throw new Error('null'); }), 'P7: Monte Carlo runs');
 ok(noThrow('P7:report', function () { WC.Report.build(s5, { flags: {}, reportDate: '2030-06-20' }); WC.Report.buildAllocations(s6, { flags: {}, reportDate: '2030-06-20' }); }), 'P7: PNG builders run');
 
+console.log('Phase 8 — RENDER layer: knocked-out teams are greyed in the dashboard');
+// Regression test for the real-data bug: a freshly-eliminated team (e.g. Qatar,
+// 4th in a finished group) showed a red ✗ in the Standings table but was NOT
+// greyed in the dashboard Disciplinary table. Root cause was render-only: when
+// the "Knocked Out" card was shown (newlyEliminated > 0), its panel reused the
+// `ko` variable, shadowing the knockedOut() map the greying reads from — so the
+// greying silently fell back to "no one is out". The compute layer (knockedOut)
+// was always correct, which is why a clean compute-only repro never caught it.
+// This drives the actual render functions through a minimal DOM stub.
+(function renderLayerTest() {
+  // --- minimal DOM stub (enough for el()/innerHTML tables/matchRow) ---------
+  function TextNode(t) { this.nodeType = 3; this.textContent = t == null ? '' : String(t); }
+  function Element(tag) {
+    this.nodeType = 1; this.tagName = tag; this.childNodes = []; this.attributes = {};
+    this._class = ''; this._html = null; this.style = {}; this.dataset = {}; this.parentNode = null;
+    var self = this;
+    this.classList = {
+      add: function (c) { var a = self._class ? self._class.split(/\s+/) : []; if (a.indexOf(c) < 0) a.push(c); self._class = a.join(' '); },
+      remove: function (c) { self._class = (self._class ? self._class.split(/\s+/) : []).filter(function (x) { return x !== c; }).join(' '); },
+      contains: function (c) { return (self._class ? self._class.split(/\s+/) : []).indexOf(c) >= 0; },
+      toggle: function (c, on) { if (on === undefined) on = !this.contains(c); if (on) this.add(c); else this.remove(c); return on; }
+    };
+  }
+  Object.defineProperty(Element.prototype, 'className', { get: function () { return this._class; }, set: function (v) { this._class = v == null ? '' : String(v); } });
+  // Setting innerHTML replaces children; a later appendChild adds AFTER it — so
+  // serialize() concatenates the parsed string and any appended child nodes,
+  // matching how a real browser merges `el.innerHTML = ...; el.appendChild(...)`.
+  Object.defineProperty(Element.prototype, 'innerHTML', { get: function () { return this._html; }, set: function (v) { this._html = v; this.childNodes = []; } });
+  Element.prototype.setAttribute = function (k, v) { this.attributes[k] = String(v); if (k === 'class') this._class = String(v); };
+  Element.prototype.getAttribute = function (k) { return this.attributes[k]; };
+  Element.prototype.addEventListener = function () {};
+  Element.prototype.appendChild = function (c) { if (c) { c.parentNode = this; this.childNodes.push(c); } return c; };
+  Element.prototype.insertBefore = function (n, ref) { var i = this.childNodes.indexOf(ref); if (i < 0) i = this.childNodes.length; this.childNodes.splice(i, 0, n); if (n) n.parentNode = this; return n; };
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function serialize(n) {
+    if (!n) return '';
+    if (n.nodeType === 3) return esc(n.textContent);
+    var cls = n._class ? (' class="' + n._class + '"') : '';
+    var attrs = ''; Object.keys(n.attributes).forEach(function (k) { if (k !== 'class') attrs += ' ' + k + '="' + n.attributes[k] + '"'; });
+    var inner = (n._html != null ? n._html : '') + n.childNodes.map(serialize).join('');
+    return '<' + n.tagName + cls + attrs + '>' + inner + '</' + n.tagName + '>';
+  }
+  global.document = {
+    createElement: function (t) { return new Element(t); },
+    createTextNode: function (t) { return new TextNode(t); },
+    addEventListener: function () {}, querySelector: function () { return null; }, querySelectorAll: function () { return []; }
+  };
+
+  // app.js needs ESPN (localDay) + a Live snapshot it can read on render.
+  load('js/espn.js');
+  var snapshot = { matches: [], earlyFilter: true, loading: false, detailLoading: false };
+  global.window.WC.Live = { get: function () { return snapshot; }, onChange: function () {}, load: function () {}, setEarlyFilter: function () {}, setFooter: function () {} };
+  if (!noThrow('P8:load app.js', function () { load('js/app.js'); })) return;
+
+  // Captured-from-real-data slice: a finished Group B with Qatar bottom (4th) and
+  // carrying card points (so it appears in the Disciplinary table), eliminated by
+  // the latest match day — exactly the live shape that triggered the bug.
+  function mk(h, a, hs, as, date, cards) {
+    return { _espnId: h + '|' + a, home: h, away: a, homeScore: hs, awayScore: as, status: 'ft', group: 'Group B', date: date, _ts: Date.parse(date + 'T18:00:00Z'), cards: cards || [] };
+  }
+  snapshot.matches = [
+    mk('Switzerland', 'Qatar', 1, 1, '2026-06-13', [{ team: 'away', player: 'A', type: 'yellow' }, { team: 'away', player: 'B', type: 'red' }]),
+    mk('Canada', 'Bosnia', 1, 0, '2026-06-13'),
+    mk('Canada', 'Qatar', 2, 1, '2026-06-18'),
+    mk('Switzerland', 'Bosnia', 1, 1, '2026-06-18'),
+    mk('Bosnia', 'Qatar', 2, 1, '2026-06-24'),
+    mk('Switzerland', 'Canada', 1, 0, '2026-06-24')
+  ];
+
+  // Preconditions: the scenario actually exercises the buggy code path.
+  ok(S.groupStatus(snapshot)['Qatar'] === 'eliminated', 'P8: Qatar is eliminated in groupStatus (drives the Standings ✗)');
+  ok(!!S.knockedOut(snapshot)['Qatar'], 'P8: Qatar is in knockedOut() (compute layer correct)');
+  ok(S.disciplinary(snapshot).some(function (r) { return r.team === 'Qatar'; }), 'P8: Qatar appears in the Disciplinary table (has card points)');
+  var lastDay = snapshot.matches.reduce(function (mx, m) { return m.date > mx ? m.date : mx; }, '');
+  ok(S.newlyEliminated(snapshot, lastDay).length > 0, 'P8: a team is newly eliminated on the latest day (shows the "Knocked Out" card)');
+
+  // Any disciplinary team that knockedOut() marks must end up greyed in the
+  // rendered dashboard. Greying renders as a <td class="team-out">…Team…</td>.
+  function greyedTeams(html) {
+    var cells = html.match(/<td class="team-out">[\s\S]*?<\/td>/g) || [];
+    var set = {}; cells.forEach(function (td) { WC.TEAMS.forEach(function (t) { if (td.indexOf(t) !== -1) set[t] = 1; }); }); return set;
+  }
+  var dashHTML = null;
+  if (noThrow('P8:render dashboard', function () { dashHTML = serialize(WC._tabRenderers.dashboard()); })) {
+    var grey = greyedTeams(dashHTML);
+    ok(!!grey['Qatar'], 'P8: Qatar IS greyed (team-out) in the dashboard Disciplinary table');
+    var ko = S.knockedOut(snapshot);
+    var missed = S.disciplinary(snapshot).filter(function (r) { return ko[r.team] && !grey[r.team]; }).map(function (r) { return r.team; });
+    ok(missed.length === 0, 'P8: every knocked-out disciplinary team is greyed (missed: ' + (missed.join(', ') || 'none') + ')');
+  }
+
+  // The Allocations tab greys off the same map; confirm it stays consistent too.
+  var allocHTML = null;
+  if (noThrow('P8:render allocations', function () { allocHTML = serialize(WC._tabRenderers.allocations()); })) {
+    ok(!!greyedTeams(allocHTML)['Qatar'], 'P8: Qatar IS greyed (team-out) in the Allocations table');
+  }
+})();
+
 console.log('');
 if (fails.length) { console.log('FAILED — ' + fails.length + ' issue(s)'); process.exit(1); }
 console.log('OK — group-stage tournament flow works end to end with the current allocations.');

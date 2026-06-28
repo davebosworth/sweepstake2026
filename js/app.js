@@ -62,13 +62,15 @@
     var lastDay = st.matches.filter(S.isFinished).reduce(function (mx, m) { return (m.date && m.date > mx) ? m.date : mx; }, '');
     var newlyOut = lastDay ? S.newlyEliminated(st, lastDay) : [];
     if (newlyOut.length) {
-      var ko = el('div', { class: 'panel ko-card' });
-      ko.appendChild(el('h2', null, ['Knocked Out ', el('span', { class: 'sub' }, ['eliminated by the latest results'])]));
+      // NB: keep this panel in its own variable — reusing `ko` here would shadow
+      // the knockedOut() map above and silently break the greying below.
+      var koCard = el('div', { class: 'panel ko-card' });
+      koCard.appendChild(el('h2', null, ['Knocked Out ', el('span', { class: 'sub' }, ['eliminated by the latest results'])]));
       newlyOut.forEach(function (team) {
-        ko.appendChild(el('div', { class: 'ko-out-row' }, [flagEl(team), el('b', null, [team]),
+        koCard.appendChild(el('div', { class: 'ko-out-row' }, [flagEl(team), el('b', null, [team]),
           el('span', { class: 'muted' }, [' · ' + WC.ownerOf(team)])]));
       });
-      root.appendChild(ko);
+      root.appendChild(koCard);
     }
 
     var liveNow = st.matches.filter(function (m) { return m.status === 'live'; }).sort(byKickoff);
@@ -1168,6 +1170,12 @@
     ['report', 'Morning Report', renderReport],
     ['allocations', 'Allocations', renderAllocations]
   ];
+
+  // Headless test hook (used by scripts/check-tournament-flow.js): exposes each
+  // tab's render function so the render layer — e.g. the disciplinary/allocations
+  // greying — can be regression-tested from a supplied Live snapshot. Inert in
+  // the browser; it only reads the same renderers the tab bar already uses.
+  WC._tabRenderers = TABS.reduce(function (acc, t) { acc[t[0]] = t[2]; return acc; }, {});
 
   function render() {
     $$('#tabs button').forEach(function (b) { b.classList.toggle('active', b.dataset.tab === activeTab); });
