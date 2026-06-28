@@ -114,6 +114,10 @@ ok(runAll(s4, 'P4'), 'P4: subsystems run with ~half the group labels missing');
 var tbl4 = S.groupTables(s4);
 var totalRows = Object.keys(tbl4).filter(function (k) { return k !== 'Unassigned'; }).reduce(function (n, k) { return n + tbl4[k].length; }, 0);
 ok(totalRows === WC.TEAMS.length, 'P4: every team still lands in a group despite missing labels (' + totalRows + '/' + WC.TEAMS.length + ')');
+var allP3 = Object.keys(tbl4).filter(function (k) { return k !== 'Unassigned'; }).every(function (k) { return tbl4[k].every(function (r) { return r.P === 3; }); });
+ok(allP3, 'P4: every team still shows P=3 — unlabelled group games are counted, not dropped');
+var ko4 = S.knockedOut(s4);
+ok(Object.keys(ko4).length === 16, 'P4: 16 knocked out even with missing labels (got ' + Object.keys(ko4).length + ')');
 
 console.log('Phase 5 — full group stage complete');
 var s5 = { matches: [] };
@@ -133,15 +137,19 @@ function tbl5() { return S.groupTables(s5); }
 var before = S.groupTables(s5);
 var beforePts = {}; Object.keys(before).forEach(function (k) { if (k !== 'Unassigned') before[k].forEach(function (r) { beforePts[r.team] = r.Pts + '/' + r.GD; }); });
 var s6 = { matches: s5.matches.concat([]) };
-// add R32 ties (cross-group, unlabelled) in mixed states for the advancing teams
-var adv = []; letters.forEach(function (g) { adv.push(groups[g][0], groups[g][1]); });
-for (var i = 0; i < adv.length; i += 2) {
-  var stts = i === 0 ? 'live' : (i === 2 ? 'scheduled' : 'ft');
-  var m = { home: adv[i], away: adv[i + 1], group: '' };
+// add R32 ties (CROSS-group, unlabelled) in mixed states — winner of group i
+// meets runner-up of the next group, like a real knockout draw.
+var winners = letters.map(function (g) { return groups[g][0]; });
+var runners = letters.map(function (g) { return groups[g][1]; });
+var koLoserTeam = null;
+winners.forEach(function (w, i) {
+  var opp = runners[(i + 1) % runners.length];   // different group
+  var stts = i === 0 ? 'live' : (i === 1 ? 'scheduled' : 'ft');
+  var m = { home: w, away: opp, group: '', _ts: 1000 + i };
   if (stts === 'scheduled') { m.status = 'scheduled'; m.homeScore = null; m.awayScore = null; }
-  else { m.status = stts; m.homeScore = 2; m.awayScore = 0; }
+  else { m.status = stts; m.homeScore = 2; m.awayScore = 0; if (stts === 'ft' && !koLoserTeam) koLoserTeam = opp; }
   s6.matches.push(m);
-}
+});
 ok(runAll(s6, 'P6'), 'P6: subsystems run with knockout fixtures in the feed');
 var after = S.groupTables(s6), afterPts = {};
 Object.keys(after).forEach(function (k) { if (k !== 'Unassigned') after[k].forEach(function (r) { afterPts[r.team] = r.Pts + '/' + r.GD; }); });
@@ -152,7 +160,7 @@ var statusStable = WC.TEAMS.every(function (t) { return st5[t] === st6[t]; });
 ok(statusStable, 'P6: group statuses unchanged once knockouts begin');
 // a finished knockout tie's loser is knocked out
 var ko6 = S.knockedOut(s6);
-ok(!!ko6[adv[5]], 'P6: loser of a finished knockout tie is knocked out');
+ok(!!koLoserTeam && !!ko6[koLoserTeam], 'P6: loser of a finished knockout tie is knocked out');
 
 console.log('Phase 7 — full bracket + Monte Carlo at tournament end');
 var odds = WC.TEAMS.map(function (t, i) { return { team: t, winnerProb: i < 30 ? (0.2 - i * 0.005) : 0 }; });

@@ -44,33 +44,12 @@
       return map[team];
     }
 
+    // Pass 1 — register every team and assign each its group from any labelled
+    // match it played.
     state.matches.forEach(function (m) {
       if (!m.home || !m.away) return;
       var h = ensure(m.home), a = ensure(m.away);
       if (m.group) { h.group = h.group || m.group; a.group = a.group || m.group; }
-      if (groupOnly && !/group\s+[a-l]\b/i.test(m.group || '')) return;   // skip knockout games
-
-      // Cards (count whenever present, even mid-match entries).
-      (m.cards || []).forEach(function (c) {
-        var t = c.team === 'home' ? h : a;
-        if (c.type === 'red') t.red += 1; else t.yellow += 1;
-      });
-
-      if (!isCounting(m)) return;
-      if (m.status === 'live') {
-        h.live = a.live = true;
-        if (m.homeScore > m.awayScore) h.liveWinning = true;
-        else if (m.awayScore > m.homeScore) a.liveWinning = true;
-      }
-
-      h.played = a.played = true;
-      h.P += 1; a.P += 1;
-      h.GF += m.homeScore; h.GA += m.awayScore;
-      a.GF += m.awayScore; a.GA += m.homeScore;
-
-      if (m.homeScore > m.awayScore) { h.W += 1; h.Pts += 3; a.L += 1; }
-      else if (m.homeScore < m.awayScore) { a.W += 1; a.Pts += 3; h.L += 1; }
-      else { h.D += 1; a.D += 1; h.Pts += 1; a.Pts += 1; }
     });
 
     // Fallback grouping: a team whose own games were all unlabelled in the feed
@@ -88,6 +67,47 @@
         else if (!a.group && h.group) { a.group = h.group; changed = true; }
       });
     }
+
+    // Pass 2 — tally cards (always) and league stats. With `groupOnly`, a game is
+    // a group-stage game when BOTH teams are in the same group — robust to a
+    // missing label on the match itself — so knockout (cross-group) ties are
+    // skipped. Each team plays exactly three group games, so we also cap at three
+    // (processing chronologically) in case two group-mates meet again in a late
+    // knockout round — that extra tie must not skew the frozen group table.
+    var gcount = {};
+    var ordered = groupOnly ? state.matches.slice().sort(function (x, y) { return (x._ts || 0) - (y._ts || 0); }) : state.matches;
+    ordered.forEach(function (m) {
+      if (!m.home || !m.away) return;
+      var h = map[m.home], a = map[m.away];
+
+      // Cards (count whenever present, even mid-match entries).
+      (m.cards || []).forEach(function (c) {
+        var t = c.team === 'home' ? h : a;
+        if (c.type === 'red') t.red += 1; else t.yellow += 1;
+      });
+
+      if (!isCounting(m)) return;
+      if (groupOnly) {
+        if (!(h.group && h.group === a.group)) return;                              // cross-group knockout tie
+        if ((gcount[m.home] || 0) >= 3 || (gcount[m.away] || 0) >= 3) return;        // beyond the three group games
+        gcount[m.home] = (gcount[m.home] || 0) + 1; gcount[m.away] = (gcount[m.away] || 0) + 1;
+      }
+
+      if (m.status === 'live') {
+        h.live = a.live = true;
+        if (m.homeScore > m.awayScore) h.liveWinning = true;
+        else if (m.awayScore > m.homeScore) a.liveWinning = true;
+      }
+
+      h.played = a.played = true;
+      h.P += 1; a.P += 1;
+      h.GF += m.homeScore; h.GA += m.awayScore;
+      a.GF += m.awayScore; a.GA += m.homeScore;
+
+      if (m.homeScore > m.awayScore) { h.W += 1; h.Pts += 3; a.L += 1; }
+      else if (m.homeScore < m.awayScore) { a.W += 1; a.Pts += 3; h.L += 1; }
+      else { h.D += 1; a.D += 1; h.Pts += 1; a.Pts += 1; }
+    });
 
     Object.keys(map).forEach(function (k) {
       var t = map[k];
@@ -488,9 +508,15 @@
       doneGroups.forEach(function (g) { var r = tables[g][2]; if (r && !qualifying[r.team]) out[r.team] = 1; });
     }
 
+    // Knockout-tie losers. A knockout tie is identified by its teams being in
+    // DIFFERENT groups (not by the match label — an unlabelled GROUP game would
+    // otherwise be mistaken for a knockout and its loser wrongly knocked out).
+    var teamGroup = {};
+    groupKeys.forEach(function (g) { tables[g].forEach(function (r) { teamGroup[r.team] = g; }); });
     (state.matches || []).forEach(function (m) {
-      if (!isFinished(m) || /group\s+[a-l]\b/i.test(m.group || '')) return;   // knockout ties only
-      if (m.homeScore == null || m.awayScore == null || m.homeScore === m.awayScore) return;
+      if (!isFinished(m) || m.homeScore == null || m.awayScore == null || m.homeScore === m.awayScore) return;
+      var gh = teamGroup[m.home], ga = teamGroup[m.away];
+      if (!gh || !ga || gh === ga) return;   // same group (or ungrouped) → not a knockout tie
       out[m.homeScore > m.awayScore ? m.away : m.home] = 1;
     });
     return out;
