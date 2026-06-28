@@ -50,11 +50,15 @@
     });
   }
 
-  // team -> "Group X", from the standings endpoint; used to label matches whose
-  // own scoreboard entry has no group. Fetched once on load.
+  // team -> "Group X", from the standings endpoint; used to label group-stage
+  // matches whose own scoreboard entry has no group. Fetched once on load.
   var groupMap = {};
   function applyGroup(m) {
-    if (m && !m.group) { var g = groupMap[m.home] || groupMap[m.away]; if (g) m.group = g; }
+    // Only label a match when BOTH teams share a group — that's a group-stage
+    // game. Knockout fixtures pair teams from different groups, so they stay
+    // unlabelled (otherwise they'd be tagged with one side's group and get rolled
+    // into the group-stage section).
+    if (m && !m.group) { var gh = groupMap[m.home], ga = groupMap[m.away]; if (gh && gh === ga) m.group = gh; }
   }
 
   function load() {
