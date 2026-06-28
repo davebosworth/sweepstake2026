@@ -57,7 +57,15 @@
   // Scoring constants.
   WC.CARD_POINTS = { yellow: 1, red: 3 };
 
-  // Tournament reference: WC2026 opens 11 June 2026. Day 1 = that date.
-  WC.DEFAULT_START_DATE = '2026-06-11';
+  // ── Tournament config ──────────────────────────────────────────────────
+  // To reuse this tracker for the next World Cup, update THIS block and the
+  // PLAYERS allocations above (and add any new teams to js/flags.js). The date
+  // window is what the app polls ESPN's fifa.world feed across.
+  WC.TOURNAMENT = {
+    name: 'World Cup 2026',
+    startDate: '2026-06-11',   // opening day = Day 1
+    endDate: '2026-07-19'      // final
+  };
+  WC.DEFAULT_START_DATE = WC.TOURNAMENT.startDate;   // back-compat alias
 
 })(window.WC = window.WC || {});

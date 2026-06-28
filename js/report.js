@@ -356,7 +356,7 @@
     var headH = 168;
     parts.push(rect(M, 40, CW, headH, { rx: T.radius, fill: T.cardFill, stroke: T.cardBorder, sw: 2 }));
     parts.push(rect(M, 40, CW, 10, { rx: 6, fill: T.gold }));     // gold title bar
-    parts.push(text(M + PAD, 110, 'World Cup 2026 · Sweepstake', { fill: T.white, size: 40, weight: 'bold' }));
+    parts.push(text(M + PAD, 110, ((WC.TOURNAMENT && WC.TOURNAMENT.name) || 'World Cup 2026') + ' · Sweepstake', { fill: T.white, size: 40, weight: 'bold' }));
     parts.push(text(M + PAD, 152, 'MORNING REPORT', { fill: T.green, size: 26, weight: 'bold', spacing: 4 }));
     var dn = dayNumber(startDate, reportDate);
     parts.push(text(M + CW - PAD, 100, 'Day ' + dn, { fill: T.gold, size: 32, weight: 'bold', anchor: 'end' }));
@@ -438,7 +438,7 @@
     var headH = 150;
     parts.push(rect(M, 40, CW, headH, { rx: T.radius, fill: T.cardFill, stroke: T.cardBorder, sw: 2 }));
     parts.push(rect(M, 40, CW, 10, { rx: 6, fill: T.gold }));
-    parts.push(text(M + PAD, 104, 'World Cup 2026 · Sweepstake', { fill: T.white, size: 40, weight: 'bold' }));
+    parts.push(text(M + PAD, 104, ((WC.TOURNAMENT && WC.TOURNAMENT.name) || 'World Cup 2026') + ' · Sweepstake', { fill: T.white, size: 40, weight: 'bold' }));
     parts.push(text(M + PAD, 144, 'TEAM ALLOCATIONS', { fill: T.green, size: 26, weight: 'bold', spacing: 4 }));
     var totalOut = WC.PLAYERS.reduce(function (n, p) { return n + p.teams.filter(function (t) { return ko[t]; }).length; }, 0);
     parts.push(text(M + CW - PAD, 100, totalOut + ' / ' + (WC.PLAYERS.length * 6) + ' out', { fill: T.gold, size: 32, weight: 'bold', anchor: 'end' }));

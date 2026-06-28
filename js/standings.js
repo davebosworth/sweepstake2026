@@ -73,6 +73,22 @@
       else { h.D += 1; a.D += 1; h.Pts += 1; a.Pts += 1; }
     });
 
+    // Fallback grouping: a team whose own games were all unlabelled in the feed
+    // inherits its group from the opponents it played — group-stage games are
+    // within a group. Iterated so a fully-unlabelled pair still resolves via a
+    // labelled third team. (Only ungrouped teams change, and ungrouped teams only
+    // exist during the group stage, so knockout ties never mis-propagate.)
+    var changed = true;
+    while (changed) {
+      changed = false;
+      state.matches.forEach(function (m) {
+        var h = m.home && map[m.home], a = m.away && map[m.away];
+        if (!h || !a) return;
+        if (!h.group && a.group) { h.group = a.group; changed = true; }
+        else if (!a.group && h.group) { a.group = h.group; changed = true; }
+      });
+    }
+
     Object.keys(map).forEach(function (k) {
       var t = map[k];
       t.GD = t.GF - t.GA;

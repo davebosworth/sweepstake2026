@@ -9,8 +9,9 @@
 (function (WC) {
   'use strict';
 
-  var START = '2026-06-11';   // WC2026 opening day (Day 1)
-  var END = '2026-07-19';     // final
+  // Tournament window — configured in js/data.js (WC.TOURNAMENT).
+  var START = (WC.TOURNAMENT && WC.TOURNAMENT.startDate) || '2026-06-11';
+  var END = (WC.TOURNAMENT && WC.TOURNAMENT.endDate) || '2026-07-19';
 
   var state = {
     startDate: START,
