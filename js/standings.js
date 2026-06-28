@@ -33,7 +33,11 @@
      not) so league tables can list all four teams before kick-off. League
      points/goals come from finished AND in-play matches (the latter provisional,
      marked with `live`); cards are counted from any match that records them. */
-  function computeTeams(state) {
+  // `groupOnly` restricts the tally to group-stage games — used for the group
+  // tables, group status and the wooden spoon, which freeze when the group stage
+  // ends (knockout results must not skew them). The disciplinary prize counts the
+  // whole tournament, so it leaves this off.
+  function computeTeams(state, groupOnly) {
     var map = {};
     function ensure(team) {
       if (!map[team]) map[team] = blankTeam(team);
@@ -44,6 +48,7 @@
       if (!m.home || !m.away) return;
       var h = ensure(m.home), a = ensure(m.away);
       if (m.group) { h.group = h.group || m.group; a.group = a.group || m.group; }
+      if (groupOnly && !/group\s+[a-l]\b/i.test(m.group || '')) return;   // skip knockout games
 
       // Cards (count whenever present, even mid-match entries).
       (m.cards || []).forEach(function (c) {
@@ -96,7 +101,7 @@
      Show the five worst, expanding to include any team tied with 5th on
      (points, GD). With the filter off, the full played field is ranked. */
   function worstTeams(state) {
-    var teams = computeTeams(state);
+    var teams = computeTeams(state, true);   // group-stage only — the wooden spoon freezes after the groups
     var rows = Object.keys(teams).map(function (k) { return teams[k]; })
       .filter(function (t) { return t.played; });
 
@@ -185,7 +190,7 @@
   // Full group league tables, keyed by group label and ranked by the 2026
   // tiebreakers (head-to-head before goal difference). Used by the Standings tab.
   function groupTables(state) {
-    var teams = computeTeams(state), byLabel = {};
+    var teams = computeTeams(state, true), byLabel = {};
     Object.keys(teams).forEach(function (k) { var t = teams[k], g = t.group || 'Unassigned'; (byLabel[g] = byLabel[g] || []).push(t); });
     var matchesByLabel = matchesByGroupLabel(state, teams);
     Object.keys(byLabel).forEach(function (g) { byLabel[g] = rankGroup(byLabel[g], matchesByLabel[g]); });
@@ -303,10 +308,10 @@
     var completeThirds = [];  // 3rd-placed teams of finished groups: { team, group, pts }
 
     // Use the SAME canonical records and grouping as the displayed tables, so
-    // status can never disagree with the table. `teams` counts every match a
-    // side plays (robust to per-match label gaps); matches are grouped by team
-    // membership for the head-to-head and brute-force scenarios.
-    var teams = computeTeams(state);
+    // status can never disagree with the table. `teams` counts group-stage games
+    // only (knockout results mustn't skew the frozen group tables); matches are
+    // grouped by team membership for the head-to-head and brute-force scenarios.
+    var teams = computeTeams(state, true);
     var byMatches = matchesByGroupLabel(state, teams);
     var byGroup = {}, byTeams = {};
     Object.keys(byMatches).forEach(function (label) { var gm = /group\s+([a-l])\b/i.exec(label); if (gm) byGroup[gm[1].toUpperCase()] = byMatches[label]; });
