@@ -116,8 +116,12 @@
 
   // A completed-match result card. Returns the new cursor y.
   function resultCard(parts, y, m) {
-    var homeWin = m.homeScore > m.awayScore;
-    var awayWin = m.awayScore > m.homeScore;
+    // A knockout level after extra time is settled on penalties: the regulation
+    // score is level, so the winner comes from the shoot-out tally (or ESPN's
+    // winner flag). Reflect that in who's shown as the winner.
+    var pens = m.homeShootout != null && m.awayShootout != null && m.homeShootout !== m.awayShootout;
+    var homeWin = m.homeScore > m.awayScore || (pens && m.homeShootout > m.awayShootout);
+    var awayWin = m.awayScore > m.homeScore || (pens && m.awayShootout > m.homeShootout);
 
     var homeScorers = (m.scorers || []).filter(function (s) { return s.team === 'home'; })
       .map(function (s) { return s.name; }).join(', ');
@@ -129,7 +133,8 @@
     var scorerLines = Math.max(hLines.length, aLines.length);
 
     var top = 64;                         // group tag + FT row
-    var body = 84;                        // teams + score + owners
+    var pensH = pens ? 28 : 0;            // extra line for the shoot-out score
+    var body = 84 + pensH;               // teams + score (+ pens) + owners
     var scorerBlock = scorerLines ? (18 + scorerLines * 28) : 8;
     var h = top + body + scorerBlock + 24;
 
@@ -138,7 +143,7 @@
     var cy = y + 40;
 
     parts.push(text(lx, cy, m.group || '', { fill: T.muted, size: 22, weight: 'bold', spacing: 2 }));
-    parts.push(text(rx, cy, 'FT', { fill: T.gold, size: 22, weight: 'bold', anchor: 'end', spacing: 2 }));
+    parts.push(text(rx, cy, pens ? 'FT · PENS' : 'FT', { fill: T.gold, size: 22, weight: 'bold', anchor: 'end', spacing: 2 }));
 
     // Teams + score (flags sit on the outer edges; text indents to make room)
     var ty = y + top + 24;
@@ -149,9 +154,10 @@
     parts.push(text(hx, ty, m.home, { fill: homeWin || (!homeWin && !awayWin) ? T.white : T.muted, size: 34, weight: 'bold' }));
     parts.push(text(ax, ty, m.away, { fill: awayWin || (!homeWin && !awayWin) ? T.white : T.muted, size: 34, weight: 'bold', anchor: 'end' }));
     parts.push(text(cx, ty, m.homeScore + ' – ' + m.awayScore, { fill: T.gold, size: 40, weight: 'bold', anchor: 'middle' }));
+    if (pens) parts.push(text(cx, ty + 26, '(' + m.homeShootout + '–' + m.awayShootout + ' on pens)', { fill: T.muted, size: 22, weight: 'bold', anchor: 'middle' }));
 
     // Owners beneath each team
-    var oy = ty + 34;
+    var oy = ty + 34 + pensH;
     parts.push(text(hx, oy, WC.ownerOf(m.home), { fill: homeWin ? T.green : T.muted, size: 24, weight: 'bold' }));
     parts.push(text(ax, oy, WC.ownerOf(m.away), { fill: awayWin ? T.green : T.muted, size: 24, weight: 'bold', anchor: 'end' }));
 

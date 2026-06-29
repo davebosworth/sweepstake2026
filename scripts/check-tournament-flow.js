@@ -276,6 +276,17 @@ console.log('Phase 8c — MORNING REPORT: knocked-out teams struck in disciplina
   var mor = dpg.filter(function (r) { return r.team === 'Morocco'; })[0];
   ok(bra && mor && bra.cardPoints < mor.cardPoints && bra.rank < mor.rank,
     'P8c: higher per-game rate (Brazil 6/2=3.0) outranks higher total over more games (Morocco 8/3=2.67)');
+
+  // A knockout settled on penalties (level after extra time) shows the shoot-out
+  // score in the Latest Results card.
+  var penState = { matches: [
+    { _espnId: 'pen', home: 'Brazil', away: 'Spain', group: '', status: 'ft', homeScore: 1, awayScore: 1, homeShootout: 5, awayShootout: 4, winner: 'home', date: '2026-07-09', _ts: 1, scorers: [], cards: [] }
+  ] };
+  var prep = null;
+  if (noThrow('P8c:Report.build (penalties)', function () { prep = WC.Report.build(penState, { flags: {}, reportDate: '2026-07-09' }); })) {
+    ok(prep.svg.indexOf('FT · PENS') !== -1, 'P8c: a penalty knockout is tagged FT · PENS');
+    ok(prep.svg.indexOf('5–4 on pens') !== -1, 'P8c: the shoot-out score is shown');
+  }
 })();
 
 console.log('Phase 8d — DISCIPLINARY scoring: FIFA fair-play points per player per match');
