@@ -1137,16 +1137,93 @@
     var t = el('table', { class: 'tbl' });
     t.innerHTML = '<thead><tr><th>#</th><th>Team</th><th>Owner</th><th class="r">Win %</th><th class="r">Trend</th></tr></thead>';
     var tb = el('tbody');
+    // Show the top 4 favourites; the rest collapse behind a "Show more" toggle.
+    var TOP = 4, extras = [];
     rows.forEach(function (r, i) {
       var tr = el('tr');
       tr.innerHTML = '<td>' + (i + 1) + '</td><td>' + WC.flagHTML(r.team) + r.team + '</td><td class="muted">' + r.owner +
         '</td><td class="r b gold">' + fmtPct(r.winnerProb) + '</td><td class="r">' + trendHTML(r.winnerProb, baseline ? baseline[r.team] : null) + '</td>';
+      if (i >= TOP) { tr.style.display = 'none'; extras.push(tr); }
       tb.appendChild(tr);
     });
     t.appendChild(tb); panel.appendChild(t);
+
+    if (extras.length) {
+      var expanded = false;
+      var moreBtn = el('button', { class: 'btn small odds-more', type: 'button' }, ['Show all ' + rows.length + ' teams']);
+      moreBtn.addEventListener('click', function () {
+        expanded = !expanded;
+        extras.forEach(function (tr) { tr.style.display = expanded ? '' : 'none'; });
+        moreBtn.textContent = expanded ? 'Show top ' + TOP + ' only' : ('Show all ' + rows.length + ' teams');
+      });
+      panel.appendChild(moreBtn);
+    }
+
     panel.appendChild(el('p', { class: 'muted small', style: 'margin:10px 2px 0' }, ['Trend is the change in win % (percentage points) since the previous day’s odds — it appears once a day’s snapshot exists to compare against.']));
     root.appendChild(panel);
+
+    // 7-day win-% trend chart for the current top 4 favourites.
+    var chart = oddsTrendChart(rows.map(function (r) { return r.team; }));
+    if (chart) root.appendChild(chart);
+
     return root;
+  }
+
+  /* A small line chart of the last 7 days' win % for the given teams' top 4,
+     built from the central odds history (data/odds-history.json). Returns null
+     until at least two days of history are available. */
+  function oddsTrendChart(orderedTeams) {
+    if (!oddsHistory) return null;
+    var days = Object.keys(oddsHistory).sort().slice(-7);
+    if (days.length < 2) return null;
+    var n = days.length;
+    var colors = ['#f4c430', '#37d27a', '#4aa3ff', '#e8503a'];
+    var series = orderedTeams.slice(0, 4).map(function (team, i) {
+      var pts = [];
+      days.forEach(function (d, xi) {
+        var v = oddsHistory[d] && oddsHistory[d][team];
+        if (v != null) pts.push({ xi: xi, v: v * 100 });
+      });
+      return { team: team, color: colors[i % colors.length], pts: pts };
+    }).filter(function (s) { return s.pts.length; });
+    if (!series.length) return null;
+
+    var maxV = 0;
+    series.forEach(function (s) { s.pts.forEach(function (p) { if (p.v > maxV) maxV = p.v; }); });
+    var yMax = Math.max(5, Math.ceil(maxV / 5) * 5);
+
+    var W = 640, H = 280, ml = 46, mr = 14, mt = 14, mb = 38;
+    var plotW = W - ml - mr, plotH = H - mt - mb;
+    function X(xi) { return ml + (n === 1 ? plotW / 2 : (xi / (n - 1)) * plotW); }
+    function Y(v) { return mt + plotH - (v / yMax) * plotH; }
+
+    var svg = '';
+    for (var g = 0; g <= yMax; g += 5) {
+      var gy = Y(g);
+      svg += '<line x1="' + ml + '" y1="' + gy + '" x2="' + (W - mr) + '" y2="' + gy + '" stroke="#1d5742" stroke-width="1"/>';
+      svg += '<text x="' + (ml - 8) + '" y="' + (gy + 4) + '" fill="#8fb3a4" font-size="12" text-anchor="end">' + g + '%</text>';
+    }
+    days.forEach(function (d, xi) {
+      var p = d.split('-');
+      svg += '<text x="' + X(xi) + '" y="' + (H - mb + 20) + '" fill="#8fb3a4" font-size="12" text-anchor="middle">' + (+p[2]) + '/' + (+p[1]) + '</text>';
+    });
+    series.forEach(function (s) {
+      var dpath = s.pts.map(function (p, i) { return (i ? 'L' : 'M') + X(p.xi).toFixed(1) + ' ' + Y(p.v).toFixed(1); }).join(' ');
+      svg += '<path d="' + dpath + '" fill="none" stroke="' + s.color + '" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>';
+      s.pts.forEach(function (p) { svg += '<circle cx="' + X(p.xi).toFixed(1) + '" cy="' + Y(p.v).toFixed(1) + '" r="3" fill="' + s.color + '"/>'; });
+    });
+
+    var panel = el('div', { class: 'panel' });
+    panel.appendChild(el('h2', null, ['Win % · last ' + n + ' days ', el('span', { class: 'sub' }, ['top 4 favourites'])]));
+    var wrap = el('div', { class: 'odds-chart' });
+    wrap.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto;display:block">' + svg + '</svg>';
+    panel.appendChild(wrap);
+    var legend = el('div', { class: 'odds-legend' });
+    legend.innerHTML = series.map(function (s) {
+      return '<span class="lg-item"><span class="lg-swatch" style="background:' + s.color + '"></span>' + WC.flagHTML(s.team) + s.team + '</span>';
+    }).join('');
+    panel.appendChild(legend);
+    return panel;
   }
 
   /* ---- header status ------------------------------------------------------ */

@@ -113,6 +113,13 @@ body {
 .tbl .r { text-align: right; }
 .tbl .b { font-weight: bold; }
 .tbl .muted { color: var(--muted); }
+/* odds: collapse toggle + win% trend chart */
+.odds-more { margin: 12px 2px 2px; }
+.odds-chart { margin: 8px 0 2px; }
+.odds-legend { display: flex; flex-wrap: wrap; gap: 16px; margin: 12px 4px 0; font-size: 13px; color: var(--white); }
+.odds-legend .lg-item { display: inline-flex; align-items: center; gap: 6px; }
+.odds-legend .lg-swatch { width: 12px; height: 12px; border-radius: 3px; flex: none; }
+.odds-legend .flag { margin: 0 2px; }
 /* knockout predictor (Projections) */
 .ko-round { display: grid; gap: 6px; margin: 8px 0 4px; }
 .ko-match { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; padding: 7px 10px; background: var(--card-2); border: 1px solid var(--border); border-radius: 8px; }
