@@ -54,8 +54,13 @@
     font:    "'DejaVu Sans', Verdana, Geneva, sans-serif"
   };
 
-  // Scoring constants.
-  WC.CARD_POINTS = { yellow: 1, red: 3 };
+  // Disciplinary scoring (FIFA fair-play scheme), applied PER PLAYER PER MATCH —
+  // not per card — so a sending-off isn't double-counted with its bookings:
+  //   yellow card .......................... 1
+  //   indirect red (second yellow) ......... 3   (not 1 + 3)
+  //   direct red ........................... 4
+  //   yellow + a later direct red .......... 5
+  WC.CARD_POINTS = { yellow: 1, yellowRed: 3, red: 4, yellowAndRed: 5 };
 
   // ── Tournament config ──────────────────────────────────────────────────
   // To reuse this tracker for the next World Cup, update THIS block and the

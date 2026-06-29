@@ -119,7 +119,7 @@
     var col = el('div', { class: 'two-col' });
 
     var dWrap = el('div', { class: 'panel' });
-    dWrap.appendChild(el('h2', null, ['Disciplinary Prize ', el('span', { class: 'sub' }, ['Red = 3 · Yellow = 1 · points per game · top 5'])]));
+    dWrap.appendChild(el('h2', null, ['Disciplinary Prize ', el('span', { class: 'sub' }, ['Yellow 1 · 2nd yellow 3 · red 4 · yellow+red 5 · per game · top 5'])]));
     if (st.detailLoading && !disc.length) dWrap.appendChild(el('p', { class: 'empty' }, ['Loading cards from ESPN…']));
     else if (!disc.length) dWrap.appendChild(el('p', { class: 'empty' }, ['No cards recorded yet.']));
     else {

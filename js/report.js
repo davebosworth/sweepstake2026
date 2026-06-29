@@ -445,7 +445,7 @@
 
     // -- Disciplinary --
     y = sectionHeading(parts, y, 'Disciplinary Prize') + 6;
-    parts.push(text(M, y, 'Red = 3 · Yellow = 1 · ranked by points per game', { fill: T.muted, size: 22 }));
+    parts.push(text(M, y, 'Yellow 1 · 2nd yellow 3 · red 4 · yellow+red 5 · ranked per game', { fill: T.muted, size: 22 }));
     y += 22;
     y = disciplinaryTable(parts, y, disc.slice(0, 5), ko) + 30;
 

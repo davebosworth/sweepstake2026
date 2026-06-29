@@ -89,11 +89,16 @@
       if (!m.home || !m.away) return;
       var h = map[m.home], a = map[m.away];
 
-      // Cards (count whenever present, even mid-match entries).
+      // Cards (count whenever present, even mid-match entries). Raw red/yellow
+      // counts are for display; the disciplinary POINTS are scored per player per
+      // match (scoreCards) so a sending-off isn't double-counted with its
+      // bookings. 'yellowred' (a second yellow) shows as a red in the counts.
       (m.cards || []).forEach(function (c) {
         var t = c.team === 'home' ? h : a;
-        if (c.type === 'red') t.red += 1; else t.yellow += 1;
+        if (c.type === 'yellow') t.yellow += 1; else t.red += 1;
       });
+      h.cardPoints += scoreCards((m.cards || []).filter(function (c) { return c.team === 'home'; }));
+      a.cardPoints += scoreCards((m.cards || []).filter(function (c) { return c.team === 'away'; }));
 
       if (!isCounting(m)) return;
       if (groupOnly) {
@@ -118,12 +123,35 @@
       else { h.D += 1; a.D += 1; h.Pts += 1; a.Pts += 1; }
     });
 
-    Object.keys(map).forEach(function (k) {
-      var t = map[k];
-      t.GD = t.GF - t.GA;
-      t.cardPoints = t.red * WC.CARD_POINTS.red + t.yellow * WC.CARD_POINTS.yellow;
-    });
+    Object.keys(map).forEach(function (k) { map[k].GD = map[k].GF - map[k].GA; });
     return map;
+  }
+
+  // FIFA fair-play disciplinary points for ONE team in ONE match, scored per
+  // player (not per card) so a sending-off and its bookings aren't double-counted:
+  //   single yellow .......... 1
+  //   second yellow → red .... 3   (an explicit 'yellowred', or two yellows)
+  //   direct red ............. 4
+  //   yellow + direct red .... 5
+  // Players without a name (rare ESPN gaps) are kept distinct so two anonymous
+  // bookings aren't mistaken for one player's second yellow.
+  function scoreCards(cards) {
+    var CP = WC.CARD_POINTS, byPlayer = {}, anon = 0;
+    cards.forEach(function (c) {
+      var key = (c.player && c.player !== 'Unknown') ? c.player : ('#' + (anon++));
+      var p = byPlayer[key] || (byPlayer[key] = { y: 0, yr: 0, r: 0 });
+      if (c.type === 'yellow') p.y += 1;
+      else if (c.type === 'yellowred') p.yr += 1;
+      else p.r += 1;   // direct red
+    });
+    var pts = 0;
+    Object.keys(byPlayer).forEach(function (k) {
+      var p = byPlayer[k];
+      if (p.yr > 0 || p.y >= 2) pts += CP.yellowRed;                 // second yellow (explicit, or two yellows)
+      else if (p.r > 0) pts += (p.y > 0 ? CP.yellowAndRed : CP.red); // direct red, +5 if also booked
+      else if (p.y === 1) pts += CP.yellow;                          // single yellow
+    });
+    return pts;
   }
 
   // Disciplinary leaderboard: every team with at least one card point, sorted by

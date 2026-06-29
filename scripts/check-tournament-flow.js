@@ -278,6 +278,27 @@ console.log('Phase 8c — MORNING REPORT: knocked-out teams struck in disciplina
     'P8c: higher per-game rate (Brazil 6/2=3.0) outranks higher total over more games (Morocco 8/3=2.67)');
 })();
 
+console.log('Phase 8d — DISCIPLINARY scoring: FIFA fair-play points per player per match');
+(function cardScoringTest() {
+  function game(home, cards) { return { _espnId: 'cs-' + home, home: home, away: 'Opp ' + home, group: '', status: 'ft', homeScore: 1, awayScore: 0, date: '2026-07-10', _ts: 70000, cards: cards }; }
+  function y(p) { return { team: 'home', player: p, type: 'yellow' }; }
+  function r(p) { return { team: 'home', player: p, type: 'red' }; }
+  function yr(p) { return { team: 'home', player: p, type: 'yellowred' }; }
+  var state = { matches: [
+    game('Brazil', [y('P1')]),                 // single yellow -> 1
+    game('Spain', [y('P1'), y('P1')]),         // two yellows (second yellow) -> 3
+    game('France', [r('P1')]),                 // direct red -> 4
+    game('Germany', [y('P1'), r('P1')]),       // yellow + direct red -> 5
+    game('Japan', [yr('P1')]),                 // explicit second-yellow red -> 3
+    game('Argentina', [y('P1'), y('P2')])      // two different players, one yellow each -> 2
+  ] };
+  var by = {}; S.disciplinary(state).forEach(function (t) { by[t.team] = t.cardPoints; });
+  var expect = { Brazil: 1, Spain: 3, France: 4, Germany: 5, Japan: 3, Argentina: 2 };
+  Object.keys(expect).forEach(function (team) {
+    ok(by[team] === expect[team], 'P8d: ' + team + ' scores ' + expect[team] + ' (got ' + by[team] + ')');
+  });
+})();
+
 console.log('Phase 8 — RENDER layer: knocked-out teams are greyed in the dashboard');
 // Regression test for the real-data bug: a freshly-eliminated team (e.g. Qatar,
 // 4th in a finished group) showed a red ✗ in the Standings table but was NOT
