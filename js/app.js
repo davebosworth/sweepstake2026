@@ -1173,15 +1173,24 @@
      built from the central odds history (data/odds-history.json). Returns null
      until at least two days of history are available. */
   function oddsTrendChart(orderedTeams) {
-    if (!oddsHistory) return null;
-    var days = Object.keys(oddsHistory).sort().slice(-7);
+    // Merge the committed daily history with TODAY's live win %, so the last
+    // point is always current (the morning snapshot lags the live odds) — the 7
+    // most recent prior days plus today = up to 8 points.
+    var hist = {};
+    if (oddsHistory) Object.keys(oddsHistory).forEach(function (d) { hist[d] = oddsHistory[d]; });
+    if (oddsState.status === 'ok') {
+      var today = WC.ESPN.londonDay(new Date()), live = {};
+      oddsState.rows.forEach(function (r) { if (r.winnerProb != null) live[r.team] = r.winnerProb; });
+      if (Object.keys(live).length) hist[today] = live;   // overrides today's snapshot with the live value
+    }
+    var days = Object.keys(hist).sort().slice(-8);
     if (days.length < 2) return null;
     var n = days.length;
     var colors = ['#f4c430', '#37d27a', '#4aa3ff', '#e8503a'];
     var series = orderedTeams.slice(0, 4).map(function (team, i) {
       var pts = [];
       days.forEach(function (d, xi) {
-        var v = oddsHistory[d] && oddsHistory[d][team];
+        var v = hist[d] && hist[d][team];
         if (v != null) pts.push({ xi: xi, v: v * 100 });
       });
       return { team: team, color: colors[i % colors.length], pts: pts };
@@ -1214,7 +1223,7 @@
     });
 
     var panel = el('div', { class: 'panel' });
-    panel.appendChild(el('h2', null, ['Win % · last ' + n + ' days ', el('span', { class: 'sub' }, ['top 4 favourites'])]));
+    panel.appendChild(el('h2', null, ['Win % · last ' + n + ' days ', el('span', { class: 'sub' }, ['top 4 favourites · incl. today (live)'])]));
     var wrap = el('div', { class: 'odds-chart' });
     wrap.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto;display:block">' + svg + '</svg>';
     panel.appendChild(wrap);
