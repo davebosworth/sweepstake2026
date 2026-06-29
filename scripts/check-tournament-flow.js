@@ -260,6 +260,22 @@ console.log('Phase 8c — MORNING REPORT: knocked-out teams struck in disciplina
     ok(rep2.svg.indexOf('WORST TEAMS') !== -1, 'P8c: mid-group-stage, the Worst Teams race table is shown');
     ok(rep2.svg.indexOf('WOODEN SPOON · SETTLED') === -1, 'P8c: mid-group-stage, no settled wooden-spoon result card');
   }
+
+  // Disciplinary ranks by card points PER GAME, not total: a higher rate over
+  // fewer games beats a higher total over more games (teams play different
+  // numbers of games once knockouts begin).
+  var pg = { matches: [
+    mk('Brazil', 'Japan', 1, 0, '2026-07-01', [{ team: 'home', type: 'red' }]),
+    mk('Brazil', 'Spain', 1, 0, '2026-07-02', [{ team: 'home', type: 'red' }]),                       // Brazil: 6 pts / 2 games = 3.0
+    mk('Morocco', 'France', 1, 0, '2026-07-01', [{ team: 'home', type: 'red' }, { team: 'home', type: 'yellow' }]),
+    mk('Morocco', 'England', 1, 0, '2026-07-02', [{ team: 'home', type: 'red' }]),
+    mk('Morocco', 'Germany', 1, 0, '2026-07-03', [{ team: 'home', type: 'yellow' }])                  // Morocco: 8 pts / 3 games = 2.67
+  ] };
+  var dpg = S.disciplinary(pg);
+  var bra = dpg.filter(function (r) { return r.team === 'Brazil'; })[0];
+  var mor = dpg.filter(function (r) { return r.team === 'Morocco'; })[0];
+  ok(bra && mor && bra.cardPoints < mor.cardPoints && bra.rank < mor.rank,
+    'P8c: higher per-game rate (Brazil 6/2=3.0) outranks higher total over more games (Morocco 8/3=2.67)');
 })();
 
 console.log('Phase 8 — RENDER layer: knocked-out teams are greyed in the dashboard');

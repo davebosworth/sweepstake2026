@@ -300,16 +300,18 @@
 
     var cRank = M + PAD;
     var cTeam = M + PAD + 70;
-    var cOwner = M + PAD + 340;
-    var cChips = M + CW - PAD - 230;
-    var cTotal = M + CW - PAD;
+    var cOwner = M + PAD + 330;
+    var cChips = M + CW - PAD - 360;
+    var cGP = M + CW - PAD - 150;
+    var cPg = M + CW - PAD;
 
     var hy = y + 40;
     parts.push(text(cRank, hy, '#', { fill: T.muted, size: 20, weight: 'bold', spacing: 1 }));
     parts.push(text(cTeam, hy, 'TEAM', { fill: T.muted, size: 20, weight: 'bold', spacing: 1 }));
     parts.push(text(cOwner, hy, 'OWNER', { fill: T.muted, size: 20, weight: 'bold', spacing: 1 }));
     parts.push(text(cChips, hy, 'CARDS', { fill: T.muted, size: 20, weight: 'bold', spacing: 1 }));
-    parts.push(text(cTotal, hy, 'PTS', { fill: T.muted, size: 20, weight: 'bold', spacing: 1, anchor: 'end' }));
+    parts.push(text(cGP, hy, 'GP', { fill: T.muted, size: 20, weight: 'bold', spacing: 1, anchor: 'end' }));
+    parts.push(text(cPg, hy, 'PTS/GM', { fill: T.muted, size: 20, weight: 'bold', spacing: 1, anchor: 'end' }));
 
     if (!rows.length) {
       parts.push(text(W / 2, y + headH + 36, 'No cards recorded yet', { fill: T.muted, size: 24, anchor: 'middle' }));
@@ -335,7 +337,9 @@
       if (r.red > 0) { cx += chip(parts, cx, ty - 6, r.red, T.red, '#1a0b08') + 10; }
       chip(parts, cx, ty - 6, r.yellow, T.yellow, '#2a2206');
 
-      parts.push(text(cTotal, ty, r.cardPoints, { fill: T.gold, size: 28, weight: 'bold', anchor: 'end' }));
+      parts.push(text(cGP, ty, r.P, { fill: out ? T.red : T.muted, size: 26, weight: 'bold', anchor: 'end', opacity: out ? 0.75 : 1 }));
+      var pg = String(Math.round((r.cardPointsPerGame || 0) * 100) / 100);
+      parts.push(text(cPg, ty, pg, { fill: T.gold, size: 28, weight: 'bold', anchor: 'end', opacity: out ? 0.75 : 1 }));
     });
     return y + h;
   }
@@ -441,7 +445,7 @@
 
     // -- Disciplinary --
     y = sectionHeading(parts, y, 'Disciplinary Prize') + 6;
-    parts.push(text(M, y, 'Red = 3 · Yellow = 1 · most points wins', { fill: T.muted, size: 22 }));
+    parts.push(text(M, y, 'Red = 3 · Yellow = 1 · ranked by points per game', { fill: T.muted, size: 22 }));
     y += 22;
     y = disciplinaryTable(parts, y, disc.slice(0, 5), ko) + 30;
 

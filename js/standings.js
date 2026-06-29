@@ -126,15 +126,20 @@
     return map;
   }
 
-  // Disciplinary leaderboard: every team with at least one card point, sorted
-  // by most card points (tiebreak: more reds, then alphabetical). Leader = the
-  // single worst-behaved team and wins the prize.
+  // Disciplinary leaderboard: every team with at least one card point, sorted by
+  // card points PER GAME PLAYED (not total) — teams play different numbers of
+  // games (knocked out early, or fewer played so far), so a rate is the fair
+  // measure. Tiebreak: higher total points, then more reds, then alphabetical.
+  // Leader = the single worst-behaved team per game and wins the prize.
   function disciplinary(state) {
     var teams = computeTeams(state);
     var rows = Object.keys(teams).map(function (k) { return teams[k]; })
       .filter(function (t) { return t.cardPoints > 0; });
+    // Per-game rate over the games actually played (guard P=0, which can only
+    // happen if a card was recorded in a match that isn't counting yet).
+    rows.forEach(function (t) { t.cardPointsPerGame = t.P > 0 ? t.cardPoints / t.P : t.cardPoints; });
     rows.sort(function (a, b) {
-      return (b.cardPoints - a.cardPoints) || (b.red - a.red) || a.team.localeCompare(b.team);
+      return (b.cardPointsPerGame - a.cardPointsPerGame) || (b.cardPoints - a.cardPoints) || (b.red - a.red) || a.team.localeCompare(b.team);
     });
     rows.forEach(function (r, i) { r.rank = i + 1; });
     return rows;

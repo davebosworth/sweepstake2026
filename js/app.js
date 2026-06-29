@@ -119,19 +119,19 @@
     var col = el('div', { class: 'two-col' });
 
     var dWrap = el('div', { class: 'panel' });
-    dWrap.appendChild(el('h2', null, ['Disciplinary Prize ', el('span', { class: 'sub' }, ['Red = 3 · Yellow = 1 · most wins · top 5'])]));
+    dWrap.appendChild(el('h2', null, ['Disciplinary Prize ', el('span', { class: 'sub' }, ['Red = 3 · Yellow = 1 · points per game · top 5'])]));
     if (st.detailLoading && !disc.length) dWrap.appendChild(el('p', { class: 'empty' }, ['Loading cards from ESPN…']));
     else if (!disc.length) dWrap.appendChild(el('p', { class: 'empty' }, ['No cards recorded yet.']));
     else {
       var dt = el('table', { class: 'tbl' });
-      dt.innerHTML = '<thead><tr><th>#</th><th>Team</th><th>Owner</th><th class="r">🟥</th><th class="r">🟨</th><th class="r">Pts</th></tr></thead>';
+      dt.innerHTML = '<thead><tr><th>#</th><th>Team</th><th>Owner</th><th class="r">🟥</th><th class="r">🟨</th><th class="r" title="Games played">GP</th><th class="r" title="Card points per game played">Pts/Gm</th></tr></thead>';
       var tb = el('tbody');
       disc.slice(0, 5).forEach(function (r) {
         var out = !!ko[r.team];
         var tr = el('tr', r.rank === 1 ? { class: 'leader' } : null);
         var team = WC.flagHTML(r.team) + (r.live ? '<span class="live-dot"></span>' : '') + r.team + (out ? ' <span class="qbadge q-no">✗</span>' : '');
         tr.innerHTML = '<td>' + r.rank + (r.rank === 1 ? ' ★' : '') + '</td><td class="' + (out ? 'team-out' : '') + '">' + team + '</td><td class="muted">' + r.owner +
-          '</td><td class="r">' + r.red + '</td><td class="r">' + r.yellow + '</td><td class="r b gold">' + r.cardPoints + '</td>';
+          '</td><td class="r">' + r.red + '</td><td class="r">' + r.yellow + '</td><td class="r">' + r.P + '</td><td class="r b gold" title="' + r.cardPoints + ' pts in ' + r.P + ' game' + (r.P === 1 ? '' : 's') + '">' + fmtPerGame(r.cardPointsPerGame) + '</td>';
         tb.appendChild(tr);
       });
       dt.appendChild(tb); dWrap.appendChild(dt);
@@ -173,6 +173,8 @@
 
   function fmtOdds(d) { return d == null ? '—' : d.toFixed(2); }
   function fmtPct(p) { return p == null ? '—' : (p * 100).toFixed(1) + '%'; }
+  // Card-points-per-game: up to 2 decimals, trailing zeros trimmed (3.67, 3, 1.5).
+  function fmtPerGame(v) { return v == null ? '—' : String(Math.round(v * 100) / 100); }
   // Win-% movement vs a baseline (both fractions). Up = win chance improved.
   function trendHTML(cur, base) {
     if (cur == null || base == null) return '<span class="muted">—</span>';
@@ -238,7 +240,7 @@
       { prize: 'Overall Winner', amount: 80, team: winner && winner.team, owner: winner && winner.owner, basis: winner ? 'shortest winner odds' : oddsNote },
       { prize: 'Runner Up', amount: 20, team: runner && runner.team, owner: runner && runner.owner, basis: runner ? ruBasis : (winRows.length ? '—' : oddsNote) },
       { prize: 'Worst Team', amount: 20, team: worst && worst.team, owner: worst && worst.owner, live: !!(worst && worst.live), basis: worst ? 'bottom of wooden-spoon table' : 'no matches yet' },
-      { prize: 'Dirtiest Team', amount: 20, team: disc && disc.team, owner: disc && disc.owner, live: !!(disc && disc.live), basis: disc ? 'most disciplinary points' : 'no cards yet' },
+      { prize: 'Dirtiest Team', amount: 20, team: disc && disc.team, owner: disc && disc.owner, live: !!(disc && disc.live), basis: disc ? 'most card points per game' : 'no cards yet' },
       { prize: 'Best Goal', amount: 20, team: null, owner: null, basis: 'not tracked', excluded: true }
     ];
   }
